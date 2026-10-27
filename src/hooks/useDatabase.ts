@@ -1,0 +1,382 @@
+import { attachPatients } from "@/lib/patientRecords";
+import { collectionRows } from "@/lib/paymentLedger";
+import { saveBillOffline } from "@/lib/saveBillOffline";
+import { useBranchContext } from "@/lib/branchContext";
+import { readBranchTable } from "@/lib/branchData";
+import { businessDayStart, businessDayEnd } from "@/lib/businessDate";
+import { businessDate } from "@/lib/businessDate";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
+import { offlineFetch, offlineFetchScoped, offlineInsert, offlineUpdate, offlineDelete } from "@/lib/offlineQuery";
+import { cLog } from "@/lib/clientLogger";
+import { cacheGetAll, cacheReplaceTable } from "@/lib/offlineDb";
+import { isOnline } from "@/lib/offlineSync";
+
+const QUERY_OPTS = {
+  staleTime: 0,
+  refetchOnMount: true as const,
+  refetchOnWindowFocus: true,
+  // Agar offline hain to bekaar retry na karo — cache se turant dikhao.
+  retry: 1,
+};
+
+export function useDashboardStats() {
+  const { selectedBranchId } = useBranchContext(); const today = businessDate();
+  return useQuery({ queryKey: ["dashboard-stats", selectedBranchId, today], ...QUERY_OPTS,
+    queryFn: async () => {
+      const [patients, appointments, billing, beds] = await Promise.all([
+        readBranchTable("patients", selectedBranchId), readBranchTable("appointments", selectedBranchId),
+        readBranchTable("billing", selectedBranchId), cacheGetAll("beds")]);
+      return { todayPatients: patients.length, todayAppointments: appointments.filter(a => a.date === today).length,
+        pendingPayments: billing.reduce((sum,b) => sum + Math.max(Number(b.amount || 0)-Number(b.discount || 0)-Number(b.amount_paid || 0),0),0),
+        todayRevenue: collectionRows(billing).filter(b => businessDate(b.created_at) === today).reduce((sum,b) => sum+Number(b.amount_paid || 0),0),
+        bedsOccupied: beds.filter(b => b.status === "occupied").length, totalBeds: beds.length };
+    } });
+}
+
+export function useTodayBills() {
+  const { selectedBranchId } = useBranchContext(); const today = businessDate();
+  return useQuery({ queryKey: ["billing", "today", selectedBranchId, today], ...QUERY_OPTS,
+    queryFn: async () => (await readBranchTable("billing", selectedBranchId, "*, patients(name, mobile, address)")).filter(b => businessDate(b.created_at) === today) });
+}
+
+export function usePendingBills() {
+  const { selectedBranchId } = useBranchContext();
+  return useQuery({ queryKey: ["billing", "pending", selectedBranchId], ...QUERY_OPTS,
+    queryFn: async () => (await readBranchTable("billing", selectedBranchId, "*, patients(name, mobile, address)")).filter(b => ["Pending", "Partial"].includes(b.status)) });
+}
+
+export function useBills(scope: "selected" | "clinic" = "selected") {
+  const { selectedBranchId } = useBranchContext();
+  const branch = scope === "clinic" ? null : selectedBranchId;
+  return useQuery({ queryKey: ["billing", "all", branch], ...QUERY_OPTS,
+    queryFn: async () => (await (async () => {
+      const [rows, patients] = await Promise.all([readBranchTable("billing", branch, "*, patients(name, mobile, address)"), cacheGetAll("patients")]);
+      const key = (id: string) => String(id || "").replace(/^local_/, "");
+      const byId = new Map(patients.map(p => [key(p.id), p]));
+      return rows.map(b => ({ ...b, patients: byId.get(key(b.patient_id)) || b.patients || null }));
+    })()).sort((a,b) => (b.created_at || "").localeCompare(a.created_at || "")) });
+}
+
+export function usePatients() {
+  const { selectedBranchId } = useBranchContext();
+  return useQuery({ queryKey: ["patients", selectedBranchId], ...QUERY_OPTS,
+    queryFn: async () => (await readBranchTable("patients", selectedBranchId)).sort((a,b) => (a.name || "").localeCompare(b.name || "")) });
+}
+
+export function useUpdateBill() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (bill: { id: string; expected_paid: number; amount: number; amount_paid: number; status: string; service?: string; payment_mode?: string; audit_reason?: string; discount?: number | null; doctor_id?: string | null; doctor_name?: string | null; doctor_commission_percent?: number | null }) => {
+      if (!Number.isFinite(bill.expected_paid)) throw new Error("बिल दोबारा खोलकर भुगतान जाँचें।");
+      const updateData: any = { _expectedPaid: bill.expected_paid, _auditReason: bill.audit_reason, amount: bill.amount, amount_paid: bill.amount_paid, status: bill.status };
+      if (bill.service !== undefined) updateData.service = bill.service;
+      if (bill.payment_mode !== undefined) updateData.payment_mode = bill.payment_mode;
+      // Doctor sirf tab bheja jaata hai jab edit mein badla ho (purane flow par koi asar nahi).
+      if (bill.doctor_id !== undefined) updateData.doctor_id = bill.doctor_id;
+      if (bill.doctor_name !== undefined) updateData.doctor_name = bill.doctor_name;
+      if (bill.doctor_commission_percent !== undefined) updateData.doctor_commission_percent = bill.doctor_commission_percent;
+      // 🚨 FIX: "discount" field yahan missing tha — Edit Bill dialog mein discount
+      // badalne par woh save hi nahi hota tha (chupchaap drop ho jaata tha).
+      if (bill.discount !== undefined) updateData.discount = bill.discount;
+      // 🆕 FIX: online sync hone tak "Edited" date UI me nahi dikhti thi
+      // (Supabase trigger updated_at sirf real DB update par set karta hai).
+      // Ab offline save hote hi bhi local updated_at turant set ho jaata hai,
+      // list/dialog me "Edited: <date>" turant dikhega, sync baad me ho jaaye.
+      updateData.updated_at = new Date().toISOString();
+      return offlineUpdate("billing", bill.id, updateData);
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["billing"] });
+      qc.invalidateQueries({ queryKey: ["dashboard-stats"] });
+      qc.invalidateQueries({ queryKey: ["audit-logs"] });
+      qc.invalidateQueries({ queryKey: ["report_payments"] });
+      qc.invalidateQueries({ queryKey: ["analytics"] });
+    },
+  });
+}
+
+export function useTodayAppointments() {
+  const { selectedBranchId } = useBranchContext(); const today = businessDate();
+  return useQuery({ queryKey: ["appointments", "today", selectedBranchId, today], ...QUERY_OPTS,
+    queryFn: async () => (await readBranchTable("appointments", selectedBranchId, "*, patients(name, mobile)")).filter(a => a.date === today).sort((a,b) => (a.time_slot || "").localeCompare(b.time_slot || "")) });
+}
+
+export function usePrescriptions() {
+  return useQuery({
+    queryKey: ["prescriptions"],
+    staleTime: 30000,
+    queryFn: async () => {
+      const rows = await offlineFetch("prescriptions", async () => {
+        const { data, error } = await supabase.from("prescriptions").select("*, patients(name)").order("created_at", { ascending: false }).limit(20);
+        if (error) throw error;
+        return data || [];
+      });
+      return [...rows].sort((a: any, b: any) => (b.created_at || "").localeCompare(a.created_at || "")).slice(0, 20);
+    },
+  });
+}
+
+export function usePhysioSessions() {
+  return useQuery({
+    queryKey: ["physio_sessions"],
+    staleTime: 30000,
+    queryFn: async () => {
+      const rows = await offlineFetch("physiotherapy_sessions", async () => {
+        const { data, error } = await supabase.from("physiotherapy_sessions").select("*, patients(name)").order("created_at", { ascending: false }).limit(500); // ✅ 20 → 500
+        if (error) throw error;
+        return data || [];
+      });
+      return attachPatients(rows, await cacheGetAll("patients")).sort((a: any, b: any) => (b.created_at || "").localeCompare(a.created_at || ""));
+    },
+  });
+}
+
+export function useReportPayments() {
+  const { selectedBranchId } = useBranchContext();
+  return useQuery({
+    queryKey: ["report_payments", selectedBranchId], ...QUERY_OPTS,
+    queryFn: async () => collectionRows(await readBranchTable("billing", selectedBranchId))
+      .map(r => ({ amount:Number(r.amount_paid || 0), payment_date:businessDate(r.created_at) })),
+  });
+}
+
+export function useAddBill() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: saveBillOffline,
+    onSuccess: async (newBill: any) => {
+      // ["billing", "all"] cache mein seedha inject karo
+      qc.setQueryData(["billing", "all"], (old: any[] | undefined) => {
+        if (!old) return [newBill];
+        // Duplicate check — agar pehle se hai to mat add karo
+        const exists = old.some((b) => b.id === newBill.id);
+        if (exists) return old;
+        return [newBill, ...old];
+      });
+
+      // Baad mein background mein fresh data bhi le lo
+      qc.invalidateQueries({ queryKey: ["billing"] });
+      qc.invalidateQueries({ queryKey: ["dashboard-stats"] });
+      qc.invalidateQueries({ queryKey: ["audit-logs"] });
+      qc.invalidateQueries({ queryKey: ["report_payments"] });
+      qc.invalidateQueries({ queryKey: ["analytics"] });
+    },
+  });
+}
+
+export function useDeleteBill() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (arg: string | { id: string; logData?: any }) => {
+      const id = typeof arg === "string" ? arg : arg.id;
+      await offlineDelete("billing", id);
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["billing"] });
+      qc.invalidateQueries({ queryKey: ["dashboard-stats"] });
+      qc.invalidateQueries({ queryKey: ["audit-logs"] });
+      qc.invalidateQueries({ queryKey: ["report_payments"] });
+      qc.invalidateQueries({ queryKey: ["analytics"] });
+    },
+  });
+}
+
+// ─── Daily Cash Book ───
+export function useCashBookEntries() {
+  return useQuery({
+    queryKey: ["cash_book_entries"],
+    ...QUERY_OPTS,
+    queryFn: async () => {
+      return offlineFetch("cash_book_entries", async () => {
+        const { data, error } = await supabase
+          .from("cash_book_entries")
+          .select("*")
+          .order("entry_date", { ascending: true })
+          .order("created_at", { ascending: true });
+        if (error) throw error;
+        return data || [];
+      });
+    },
+  });
+}
+
+export function useAddCashBookEntry() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (entry: any) => offlineInsert("cash_book_entries", entry),
+    onSuccess: (newEntry: any) => {
+      qc.setQueryData(["cash_book_entries"], (old: any[] | undefined) => (old ? [...old, newEntry] : [newEntry]));
+      qc.invalidateQueries({ queryKey: ["cash_book_entries"] });
+    },
+  });
+}
+
+export function useDeleteCashBookEntry() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (id: string) => offlineDelete("cash_book_entries", id),
+    onSuccess: (_res, id) => {
+      qc.setQueryData(["cash_book_entries"], (old: any[] | undefined) => (old ? old.filter((e) => e.id !== id) : old));
+      qc.invalidateQueries({ queryKey: ["cash_book_entries"] });
+    },
+  });
+}
+
+export function saveLocalData(type: string, data: any) {
+  try {
+    const existing = JSON.parse(localStorage.getItem(`local_${type}`) || "[]");
+    existing.push({ ...data, savedAt: new Date().toISOString() });
+    localStorage.setItem(`local_${type}`, JSON.stringify(existing));
+  } catch {}
+}
+
+// ─── Restored hooks for existing pages ───
+export function useAppointments() {
+  const { selectedBranchId } = useBranchContext();
+  return useQuery({ queryKey: ["appointments", selectedBranchId], ...QUERY_OPTS,
+    queryFn: async () => (await readBranchTable("appointments", selectedBranchId, "*, patients(name, mobile)")).sort((a,b) => (b.date || "").localeCompare(a.date || "") || (a.time_slot || "").localeCompare(b.time_slot || "")) });
+}
+
+export function useAddAppointment() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (a: any) => offlineInsert("appointments", { status: "Scheduled", ...a }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["appointments"] }),
+  });
+}
+
+export function useUpdateAppointment() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ id, ...updates }: { id: string } & Record<string, any>) => offlineUpdate("appointments", id, updates),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["appointments"] }),
+  });
+}
+
+export function useBeds() {
+  return useQuery({
+    queryKey: ["beds"],
+    queryFn: async () => {
+      const rows = await offlineFetch("beds", async () => {
+        const { data, error } = await supabase
+          .from("beds")
+          .select("*, patients(name)")
+          .order("bed_number", { ascending: true });
+        if (error) throw error;
+        return data as any[] || [];
+      });
+      const patients = await cacheGetAll("patients");
+      return rows.map((bed: any) => ({ ...bed, patients: patients.find(p => p.id === bed.patient_id) || null }))
+        .sort((a: any, b: any) => String(a.bed_number).localeCompare(String(b.bed_number), undefined, { numeric: true }));
+    },
+  });
+}
+
+export function useUpdateBed() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ id, ...updates }: { id: string } & Record<string, any>) => offlineUpdate("beds", id, updates),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["beds"] });
+      qc.invalidateQueries({ queryKey: ["dashboard-stats"] });
+      qc.invalidateQueries({ queryKey: ["audit-logs"] });
+      qc.invalidateQueries({ queryKey: ["report_payments"] });
+    },
+  });
+}
+
+export function useAddPatient() {
+  const qc = useQueryClient();
+  return useMutation({
+    // 🚨 FIX: naye patient ko created_at kabhi set nahi hota tha (sirf
+    // Supabase pe sync hone ke baad, server side, milta tha). Tab tak
+    // Billing.tsx ki patient-list "kaun sabse naya hai" ye pata karne ke
+    // liye Date.now() par bharosa karti thi — jo har render me thoda alag
+    // aata hai, isliye list ke naam upar-niche hote rehte the. Ab created_at
+    // yahin, save karte hi, lock kar denge.
+    mutationFn: async (p: any) => offlineInsert("patients", { ...p, created_at: p.created_at || new Date().toISOString() }),
+    onSuccess: (newPatient: any) => {
+      // Cache mein seedha inject karo — invalidate + refetch ka wait nahi karna
+      // Billing page navigate hote hi naya patient list mein dikh jaayega
+      qc.setQueryData(["patients"], (old: any[] | undefined) => {
+        const existing = old || [];
+        // duplicate avoid karo
+        const filtered = existing.filter((p: any) => p.id !== newPatient.id);
+        return [newPatient, ...filtered];
+      });
+      // Background mein invalidate bhi karo taaki fresh data aaye
+      qc.invalidateQueries({ queryKey: ["patients"] });
+    },
+  });
+}
+
+export function useSearchPatients(search: string) {
+  const { selectedBranchId } = useBranchContext();
+  return useQuery({ queryKey: ["patients", "search", search, selectedBranchId], enabled: search.trim().length > 0,
+    queryFn: async () => {
+      const rows = await readBranchTable("patients", selectedBranchId);
+      const term = search.toLowerCase().trim();
+      return rows.filter(p => (p.name || "").toLowerCase().includes(term) || (p.mobile || "").includes(term) || (p.registration_number || "").toLowerCase().includes(term)).slice(0,20);
+    } });
+}
+
+export function useAddPrescription() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (p: any) => offlineInsert("prescriptions", p),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["prescriptions"] }),
+  });
+}
+
+export function useAddPhysioSession() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (s: any) => offlineInsert("physiotherapy_sessions", s),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["physio_sessions"] }),
+  });
+}
+
+export function useXrayReports() {
+  return useQuery({
+    queryKey: ["xray_reports"],
+    queryFn: async () => {
+      const rows = await offlineFetch("xray_reports", async () => {
+        const { data, error } = await supabase
+          .from("xray_reports")
+          .select("*, patients(name)")
+          .not("notes", "ilike", "%[ortho:%")
+          .order("uploaded_at", { ascending: false });
+        if (error) throw error;
+        return data as any[] || [];
+      });
+      // Also filter offline records — ortho fracture X-rays ko exclude karo
+      const filtered = rows.filter((r: any) => !r.notes?.includes("[ortho:")).map(r => ({ ...r, file_url: r._localFileUrl || r.file_url }));
+      return [...filtered].sort((a: any, b: any) => (b.uploaded_at || "").localeCompare(a.uploaded_at || ""));
+    },
+  });
+}
+
+export function useAddXrayReport() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (r: any) => offlineInsert("xray_reports", r),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["xray_reports"] }),
+  });
+}
+
+export function useDeletePatient() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ id, logData }: { id: string; logData?: any }) => {
+      await offlineDelete("patients", id);
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["patients"] });
+      qc.invalidateQueries({ queryKey: ["billing"] });
+      qc.invalidateQueries({ queryKey: ["dashboard-stats"] });
+      qc.invalidateQueries({ queryKey: ["audit-logs"] });
+      qc.invalidateQueries({ queryKey: ["report_payments"] });
+    },
+  });
+}

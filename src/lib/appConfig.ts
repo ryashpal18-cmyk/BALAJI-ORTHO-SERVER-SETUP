@@ -1,0 +1,146 @@
+// ── Shared config utility for Balaji Ortho Care ──
+// Sab kuch localStorage mein save hota hai (offline-first)
+
+export const STORAGE_KEYS = {
+  IS_LOGGED_IN:    "isLoggedIn",
+  USER_NAME:       "userName",
+  USER_ROLE:       "bocc_user_role",
+  USER_PERMS:      "bocc_user_perms",
+  STAFF_USERS:     "bocc_staff_users",
+  DASH_MODULES:    "bocc_dash_modules",
+  APP_THEME:       "bocc_app_theme",
+  SERVICE_CATALOG: "bocc_service_catalog", // { id, name, rate }[]
+};
+
+// ── Types ──
+export interface StaffUser {
+  id: string;
+  username: string;
+  password?: string;
+  displayName: string;
+  allowedPages: string[];   // array of route paths e.g. ['/dashboard', '/opd']
+  createdAt: string;
+}
+
+export interface DashModules {
+  statCards:      boolean;
+  todayPatients:  boolean;
+  pendingDues:    boolean;
+  orthoPanel:     boolean;
+}
+
+export interface AppTheme {
+  primaryColor: string;
+  accentColor:  string;
+}
+
+// ── Defaults ──
+export const DEFAULT_MODULES: DashModules = {
+  statCards:     true,
+  todayPatients: true,
+  pendingDues:   true,
+  orthoPanel:    true,
+};
+
+export const DEFAULT_THEME: AppTheme = {
+  primaryColor: "#1e57b0",
+  accentColor:  "#16a34a",
+};
+
+// ── Readers ──
+export const getStaffUsers   = (): StaffUser[]  => {
+  try { return JSON.parse(localStorage.getItem(STORAGE_KEYS.STAFF_USERS) || "[]"); } catch { return []; }
+};
+export const getDashModules  = (): DashModules  => {
+  try { return { ...DEFAULT_MODULES, ...JSON.parse(localStorage.getItem(STORAGE_KEYS.DASH_MODULES) || "{}") }; } catch { return DEFAULT_MODULES; }
+};
+export const getAppTheme     = (): AppTheme     => {
+  try { return { ...DEFAULT_THEME, ...JSON.parse(localStorage.getItem(STORAGE_KEYS.APP_THEME) || "{}") }; } catch { return DEFAULT_THEME; }
+};
+export const getCurrentRole  = (): "admin"|"staff" => (localStorage.getItem(STORAGE_KEYS.USER_ROLE) as any) || "staff";
+export const getCurrentPerms = (): string[]       => {
+  try { return JSON.parse(localStorage.getItem(STORAGE_KEYS.USER_PERMS) || "[]"); } catch { return []; }
+};
+
+// ── Writers ──
+export const saveStaffUsers  = (users: StaffUser[]) => localStorage.setItem(STORAGE_KEYS.STAFF_USERS, JSON.stringify(users));
+export const saveDashModules = (m: DashModules)     => localStorage.setItem(STORAGE_KEYS.DASH_MODULES, JSON.stringify(m));
+export const saveAppTheme    = (t: AppTheme)        => localStorage.setItem(STORAGE_KEYS.APP_THEME, JSON.stringify(t));
+
+// ── All pages list ──
+export const ALL_PAGES = [
+  { path: "/follow-ups", label: "Follow-up List" },
+  { path: "/due-amount", label: "Due Amount" },
+  { path: "/prescription", label: "Prescription" },
+  { path: "/inventory", label: "Inventory" },
+  { path: "/revenue-dashboard", label: "Revenue Dashboard" },
+  { path: "/insurance-claims", label: "Insurance Claims" },
+  { path: "/booking-requests", label: "Booking Requests" },
+  { path: "/plaster-sync", label: "Plaster Sync" },
+  { path: "/audit-log", label: "Audit Log" },
+  { path: "/dashboard",           label: "Dashboard" },
+  { path: "/opd",                 label: "OPD" },
+  { path: "/daily-cash-book",     label: "Daily Cash Book" },
+  { path: "/ipd",                 label: "IPD / Beds" },
+  { path: "/appointments",        label: "Appointments" },
+  { path: "/products",            label: "Add Product" },
+  { path: "/billing",             label: "Billing" },
+  { path: "/cash-tally",          label: "Cash Tally" },
+  { path: "/medicine-master",     label: "Medicine Master" },
+  { path: "/patient-medicine",    label: "Patient Medicine" },
+  { path: "/medicine-commission", label: "Medicine Commission" },
+  { path: "/dr-reg",              label: "DR REG (Doctors)" },
+  { path: "/physiotherapy",       label: "Physiotherapy" },
+  { path: "/ortho",               label: "Ortho / Fracture" },
+  { path: "/reports",             label: "Reports / X-Ray" },
+  { path: "/analytics",           label: "Analytics" },
+  { path: "/whatsapp",            label: "WhatsApp" },
+  { path: "/sms-logs",            label: "SMS Logs" },
+];
+
+// ── Service Catalog (billing autocomplete) ──
+export interface ServiceCatalogItem {
+  id: string;
+  name: string;
+  rate: number;
+}
+
+export const serviceSearchKey = (name: string) => name.trim().toLocaleLowerCase().replace(/[\s.\-_]+/g, "");
+
+export const getServiceCatalog = (): ServiceCatalogItem[] => {
+  try {
+    const items = JSON.parse(localStorage.getItem(STORAGE_KEYS.SERVICE_CATALOG) || "[]");
+    return Array.isArray(items) ? items.filter(c => c && typeof c.id === "string" && typeof c.name === "string" && c.name.trim() && !/[|:]/.test(c.name) && Number.isFinite(c.rate) && c.rate >= 0) : [];
+  } catch { return []; }
+};
+
+export const saveServiceCatalog = (items: ServiceCatalogItem[]) =>
+  localStorage.setItem(STORAGE_KEYS.SERVICE_CATALOG, JSON.stringify(items));
+
+export function upsertServiceProduct(name: string, rate: string, id?: string): ServiceCatalogItem[] {
+  const cleanName = name.trim();
+  const value = Number(rate);
+  if (!cleanName || /[|:]/.test(cleanName)) throw new Error("सेवा का सही नाम लिखें। नाम में : या | न डालें।");
+  if (!rate.trim() || !Number.isFinite(value) || value < 0) throw new Error("सही रेट भरें (₹0 या अधिक)।");
+  const items = getServiceCatalog();
+  if (items.some(c => c.id !== id && serviceSearchKey(c.name) === serviceSearchKey(cleanName))) {
+    throw new Error("यह सेवा पहले से है। उसका रेट Edit करें।");
+  }
+  const item = { id: id || crypto.randomUUID(), name: cleanName, rate: Math.round(value * 100) / 100 };
+  const next = id ? items.map(c => c.id === id ? item : c) : [...items, item];
+  saveServiceCatalog(next);
+  return next;
+}
+
+// Remember new free-text services, but never overwrite the saved price with a bill-specific rate.
+export const learnServiceItems = (items: { name: string; amount: number }[]) => {
+  const catalog = getServiceCatalog();
+  const known = new Set(catalog.map(c => serviceSearchKey(c.name)));
+  for (const { name, amount } of items) {
+    const trimmed = name.trim(), key = serviceSearchKey(trimmed);
+    if (!trimmed || /[|:]/.test(trimmed) || !Number.isFinite(amount) || amount < 0 || known.has(key)) continue;
+    catalog.push({ id: crypto.randomUUID(), name: trimmed, rate: amount });
+    known.add(key);
+  }
+  saveServiceCatalog(catalog);
+};

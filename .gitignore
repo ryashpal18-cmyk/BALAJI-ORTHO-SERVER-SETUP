@@ -1,0 +1,7 @@
+node_modules/
+dist/
+release/
+.env*
+!*.example
+auth-public-config.json
+*.log

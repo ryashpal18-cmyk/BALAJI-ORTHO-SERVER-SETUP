@@ -1,0 +1,58 @@
+appId: com.balaji.ortho.serversetup
+productName: Balaji Ortho Server Setup
+copyright: "Balaji Ortho Care Center"
+
+directories:
+  output: release
+
+asar: false
+
+publish:
+  - provider: github
+    owner: ryashpal18-cmyk
+    repo: BALAJI-ORTHO-SERVER-SETUP
+    releaseType: release
+
+files:
+  - dist/**
+  - main.js
+  - pc-messaging.cjs
+  - whatsapp-service.cjs
+  - messaging-log.cjs
+  - family-profile.cjs
+  - invoice-document.cjs
+  - patient-statement.cjs
+  - monthly-report.cjs
+  - festival-messaging.cjs
+  - outreach-service.cjs
+  - attachment-cache.cjs
+  - preload.js
+  - diagnostics.cjs
+  - diagnostic-utils.cjs
+  - logger.cjs
+  - sqlite-store.cjs
+  - sms-outbox.cjs
+  - access-control.cjs
+  - offline-login.cjs
+  - cloud-sync.cjs
+  - server-setup.cjs
+  - server-setup/**
+  - package.json
+
+win:
+  icon: build/icon.png
+  target:
+    - target: nsis
+      arch: [x64]
+
+nsis:
+  oneClick: false
+  allowToChangeInstallationDirectory: true
+  createDesktopShortcut: true
+  createStartMenuShortcut: true
+  shortcutName: "Balaji Ortho Server Setup"
+  artifactName: "BalajiOrthoServerSetup-${version}.exe"
+
+protocols:
+  - name: Balaji Clinic Family Profile
+    schemes: [balajiserversetup]
