@@ -1,3 +1,4 @@
+import {brandText,getClinicProfile,getBillClinicProfile,clinicLogo} from '@/lib/clinicProfile';
 import { useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { isOnline } from "@/lib/offlineSync";
@@ -94,7 +95,7 @@ export default function AIXrayReport() {
       return;
     }
 
-    const prompt = `You are a senior expert radiologist at Balaji Ortho Care Center. Analyze this X-ray image carefully.
+    const prompt = `You are a senior expert radiologist at ${brandText("Balaji Ortho Care Center",false)}. Analyze this X-ray image carefully.
 
 Patient: ${name || "Not provided"}, Age: ${age || "?"} years, Gender: ${gender}
 
@@ -158,7 +159,7 @@ Respond ONLY with valid JSON no markdown no extra text:
 
           report_data: JSON.stringify(reportData),
 
-          clinic_name: "Balaji Ortho Care Center",
+          clinic_name: brandText("Balaji Ortho Care Center",false),
         });
       } catch (e) {
         console.log("Save error:", e);
@@ -183,8 +184,7 @@ Respond ONLY with valid JSON no markdown no extra text:
             🩻 AI X-Ray Report Generator
           </h2>
           <p className="text-sm text-muted-foreground">
-            Balaji Ortho Care Center · Patient fee ₹50 · Doctor free
-          </p>
+            {brandText("\n            Balaji Ortho Care Center · Patient fee ₹50 · Doctor free\n          ")}</p>
         </div>
         <div className="rounded-md bg-primary/10 px-3 py-2 text-sm font-semibold text-primary">
           Gemini AI
@@ -296,7 +296,7 @@ Respond ONLY with valid JSON no markdown no extra text:
       {report && (
         <article className="mt-5 space-y-4 rounded-lg border bg-background p-4 print:border-0 print:p-0">
           <header className="border-b pb-3">
-            <h3 className="font-heading text-lg font-bold">Balaji Ortho Care Center</h3>
+            <h3 className="font-heading text-lg font-bold">{brandText("Balaji Ortho Care Center")}</h3>
             <p className="text-xs text-muted-foreground">
               AI X-Ray Report · {new Date().toLocaleDateString("en-IN")}
             </p>

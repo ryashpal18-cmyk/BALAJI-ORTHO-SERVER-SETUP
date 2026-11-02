@@ -1,5 +1,5 @@
 import { useState } from "react";
-import designUrl from "@/assets/clinic-letterpad.jpg";
+import {buildClinicLetterpadHtml} from '@/lib/clinicLetterpad';
 import { printPatientLetterpad } from "@/lib/patientPrint";
 import { refreshPatientRegistration } from "@/lib/patientRegistration";
 import A4PrintPreview from "@/components/A4PrintPreview";
@@ -36,7 +36,7 @@ export default function LetterpadPatientPrint({ patient }: Props) {
   const [previewOpen, setPreviewOpen] = useState(false);
   const formattedDate = /^\d{4}-\d{2}-\d{2}$/.test(date) ? date.split("-").reverse().join("/") : "";
   const values = { name: patient?.name || "", age: patient?.age != null ? `${patient.age} Y` : "", gender: patient?.gender || "", date: formattedDate, registration: registration.trim() };
-  const html = buildLetterpadHtml(values, layout, { background: paper === "complete" ? designUrl : undefined });
+  const html = paper === "complete" ? buildClinicLetterpadHtml(values,layout) : buildLetterpadHtml(values,layout);
   const refreshRegistration = async () => {
     if (checking || !patient) return;
     setChecking(true);
@@ -63,14 +63,14 @@ export default function LetterpadPatientPrint({ patient }: Props) {
       <Button variant={paper === "information" ? "default" : "outline"} onClick={() => setPaper("information")}>1. केवल Patient Information</Button>
       <Button variant={paper === "complete" ? "default" : "outline"} onClick={() => setPaper("complete")}>2. पूरा Letterpad + Patient Information</Button>
     </div>
-    <p className="text-sm">{paper === "information" ? "पहले से छपे लेटरपैड के लिए: केवल नाम, BAOR नंबर, उम्र, लिंग और तारीख छपेगी।" : "सादे A4 कागज के लिए: आपका पूरा final design और मरीज की भरी हुई जानकारी छपेगी।"}</p>
+    <p className="text-sm">{paper === "information" ? "पहले से छपे लेटरपैड के लिए: केवल नाम, रजिस्ट्रेशन नंबर, उम्र, लिंग और तारीख छपेगी।" : "सादे A4 कागज के लिए: आपका पूरा final design और मरीज की भरी हुई जानकारी छपेगी।"}</p>
     {patient ? <p className="font-semibold">{patient.name} · {patient.age ?? "—"} वर्ष · {patient.gender || "—"}</p> : <p>ऊपर से मरीज चुनें।</p>}
     <div className="grid sm:grid-cols-2 gap-3">
       <div><Label htmlFor="letterpad-date">प्रिंट की तारीख</Label><Input id="letterpad-date" type="date" value={date} onChange={e => setDate(e.target.value)} /></div>
       <div><Label htmlFor="letterpad-reg">मरीज का रजिस्ट्रेशन नंबर</Label>
         <Input id="letterpad-reg" readOnly value={registration} placeholder={registrationLoading ? "लोड हो रहा है…" : "रजिस्ट्रेशन नंबर अभी उपलब्ध नहीं है"} />
         <p className="text-xs text-muted-foreground">यह मरीज का स्थायी नंबर है। बिल बनाए बिना भी प्रिंट कर सकते हैं।</p>
-        {patient && !registrationLoading && !registration && <p className="text-sm text-destructive">मरीज सेव है, लेकिन BAOR नंबर स्थानीय रिकॉर्ड में नहीं है। नीचे नंबर की जाँच करें।</p>}
+        {patient && !registrationLoading && !registration && <p className="text-sm text-destructive">मरीज सेव है, लेकिन रजिस्ट्रेशन नंबर स्थानीय रिकॉर्ड में नहीं है। नीचे नंबर की जाँच करें।</p>}
         <Button size="sm" variant="outline" disabled={!patient || checking} onClick={() => void refreshRegistration()}>{checking ? "नंबर की जाँच हो रही है…" : "नंबर की जाँच / डाउनलोड करें"}</Button>
         {registrationMessage && <p role="status" className="text-sm">{registrationMessage}</p>}
       </div>
