@@ -1,3 +1,4 @@
+import {brandText,getClinicProfile,getBillClinicProfile,clinicLogo} from '@/lib/clinicProfile';
 // Hindi WhatsApp message builder for ortho clinic.
 // Uses WhatsApp Web URL — no paid API.
 
@@ -22,7 +23,7 @@ export type WaFracture = {
   next_followup_date?: string | null;
 };
 
-export const CLINIC_NAME = "Balaji Ortho Care Center";
+export const CLINIC_NAME = brandText("Balaji Ortho Care Center",false);
 
 function fmtDate(d?: string | null) {
   if (!d) return "-";

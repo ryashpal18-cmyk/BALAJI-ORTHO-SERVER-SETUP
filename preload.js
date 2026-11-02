@@ -3,6 +3,7 @@
 const { contextBridge, ipcRenderer } = require('electron');
 
 contextBridge.exposeInMainWorld('electron', {
+  clinicProfile:{get:()=>ipcRenderer.sendSync('clinic-profile:get'),forBill:id=>ipcRenderer.sendSync('clinic-profile:bill',id),save:input=>ipcRenderer.invoke('clinic-profile:save',input)},
   server: { publicConfig: () => ipcRenderer.sendSync('server:publicConfig'), check: input => ipcRenderer.invoke('server:check', input), provision: input => ipcRenderer.invoke('server:provision', input), connect: input => ipcRenderer.invoke('server:connect', input), restart: () => ipcRenderer.invoke('server:restart') },
 
   family: {list: () => ipcRenderer.invoke('family:list'), profile: id => ipcRenderer.invoke('family:profile', id)},

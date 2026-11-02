@@ -1,7 +1,8 @@
+import {brandText,getClinicProfile,getBillClinicProfile,clinicLogo} from '@/lib/clinicProfile';
 import { useState, useEffect, useRef } from "react";
 import { Lock, Delete } from "lucide-react";
 import { verifyPin, markActive } from "@/lib/pinLock";
-import logo from "@/assets/logo.png";
+const logo = clinicLogo();
 
 export function PinLockScreen({ onUnlock }: { onUnlock: () => void }) {
   const [pin, setPin] = useState("");
@@ -40,7 +41,7 @@ export function PinLockScreen({ onUnlock }: { onUnlock: () => void }) {
     }}>
       <img src={logo} alt="Balaji" style={{ height: "56px", width: "56px", borderRadius: "14px" }} />
       <div style={{ textAlign: "center" }}>
-        <p style={{ fontWeight: 700, fontSize: "16px" }}>Balaji Ortho Care — Locked</p>
+        <p style={{ fontWeight: 700, fontSize: "16px" }}>{brandText("Balaji Ortho Care — Locked")}</p>
         <p style={{ fontSize: "12px", opacity: 0.6, marginTop: "4px" }}>
           <Lock style={{ display: "inline", width: 12, height: 12, marginRight: 4 }} />
           PIN dalkar unlock karo

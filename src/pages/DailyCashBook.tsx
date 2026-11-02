@@ -1,3 +1,4 @@
+import {brandText,getClinicProfile,getBillClinicProfile,clinicLogo} from '@/lib/clinicProfile';
 import { safeReportHtml, writeReportDocument, escapeHtml } from "@/lib/safeReportHtml";
 import { collectionRows } from "@/lib/paymentLedger";
 import { businessDate } from "@/lib/businessDate";
@@ -117,9 +118,9 @@ function printCashBook(dateLabel: string, rows: any[], bills: any[], summary: Re
     @media print{button{display:none}}
   </style></head><body>
   <div class="header">
-    <div class="clinic">Balaji Ortho Care Center</div>
-    <div class="muted">Dr. S. S. Rathore (DMRT | BPT) · Opp Govt Hospital, Bay Pass Road, Khinwara, Raj. – 306502</div>
-    <div class="muted">Phone: +91 8005707783</div>
+    <div class="clinic">${brandText("Balaji Ortho Care Center",true)}</div>
+    <div class="muted">${brandText("Dr. S. S. Rathore (DMRT | BPT)",true)} · ${brandText("Opp Govt Hospital, Bay Pass Road, Khinwara, Raj. – 306502",true)}</div>
+    <div class="muted">Phone: ${brandText("+91 8005707783",true)}</div>
   </div>
   <h2>Daily Cash Book — ${dateLabel}</h2>
   <div class="summary">
@@ -179,7 +180,7 @@ function printMonthlyCashBook(monthLabel: string, rows: { date: string; opening:
     .box .value{font-size:14px;font-weight:800}
     @media print{button{display:none}}
   </style></head><body>
-  <div class="clinic">Balaji Ortho Care Center — Monthly Cash Book</div>
+  <div class="clinic">${brandText("Balaji Ortho Care Center",true)} — Monthly Cash Book</div>
   <div class="muted">${monthLabel}</div>
   <div class="summary">
     <div class="box"><div class="label">Grand Total Collection</div><div class="value">₹${(totals.grandTotal||0).toLocaleString("en-IN")}</div></div>

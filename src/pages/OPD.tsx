@@ -1,3 +1,4 @@
+import {brandText,getClinicProfile,getBillClinicProfile,clinicLogo} from '@/lib/clinicProfile';
 import { safeReportHtml, writeReportDocument, escapeHtml } from "@/lib/safeReportHtml";
 import { normalizeIndianMobile } from "@/lib/mobile";
 import { businessDate } from "@/lib/businessDate";
@@ -34,10 +35,10 @@ const orthoAdvice: Record<string, string> = {
 };
 
 const CLINIC = {
-  name: "Balaji Ortho Care Center",
-  doctor: "Dr. S. S. Rathore (DMRT | BPT)",
-  address: "Opp Govt Hospital, Bay Pass Road, Khinwara, Rajasthan – 306502",
-  phone: "+91 8005707783",
+  name: brandText("Balaji Ortho Care Center",false),
+  doctor: brandText("Dr. S. S. Rathore (DMRT | BPT)",false),
+  address: brandText("Opp Govt Hospital, Bay Pass Road, Khinwara, Rajasthan – 306502",false),
+  phone: brandText("+91 8005707783",false),
 };
 
 function getSelectedPatient(allPatients: any[] | undefined, patientId: string) {
@@ -49,10 +50,10 @@ function buildPrescriptionHTML(patient: any, rxForm: any, advice: string) {
   return `
     <div style="font-family: 'Segoe UI', Arial, sans-serif; max-width: 700px; margin: 0 auto; padding: 24px; color: #1a1a2e;">
       <div style="text-align: center; border-bottom: 3px solid #0a2647; padding-bottom: 16px; margin-bottom: 16px;">
-        <h1 style="margin: 0; font-size: 22px; color: #0a2647;">${CLINIC.name}</h1>
-        <p style="margin: 4px 0; font-size: 14px; font-weight: 600; color: #00b4d8;">${CLINIC.doctor}</p>
-        <p style="margin: 2px 0; font-size: 12px; color: #555;">${CLINIC.address}</p>
-        <p style="margin: 2px 0; font-size: 12px; color: #555;">Phone: ${CLINIC.phone}</p>
+        <h1 style="margin: 0; font-size: 22px; color: #0a2647;">${escapeHtml(CLINIC.name)}</h1>
+        <p style="margin: 4px 0; font-size: 14px; font-weight: 600; color: #00b4d8;">${escapeHtml(CLINIC.doctor)}</p>
+        <p style="margin: 2px 0; font-size: 12px; color: #555;">${escapeHtml(CLINIC.address)}</p>
+        <p style="margin: 2px 0; font-size: 12px; color: #555;">Phone: ${escapeHtml(CLINIC.phone)}</p>
       </div>
       <div style="display: flex; justify-content: space-between; margin-bottom: 12px; font-size: 13px;">
         <div><strong>Patient:</strong> ${patient?.name || "N/A"}</div>
@@ -80,8 +81,8 @@ function buildPrescriptionHTML(patient: any, rxForm: any, advice: string) {
         <p style="margin: 0; font-size: 13px;">${new Date(rxForm.followup_date).toLocaleDateString("en-IN")}</p>
       </div>` : ""}
       <div style="border-top: 2px solid #0a2647; padding-top: 16px; margin-top: 24px; text-align: right;">
-        <p style="margin: 0; font-size: 14px; font-weight: 600; color: #0a2647;">${CLINIC.doctor}</p>
-        <p style="margin: 2px 0; font-size: 11px; color: #555;">${CLINIC.name}</p>
+        <p style="margin: 0; font-size: 14px; font-weight: 600; color: #0a2647;">${escapeHtml(CLINIC.doctor)}</p>
+        <p style="margin: 2px 0; font-size: 11px; color: #555;">${escapeHtml(CLINIC.name)}</p>
       </div>
     </div>
   `;

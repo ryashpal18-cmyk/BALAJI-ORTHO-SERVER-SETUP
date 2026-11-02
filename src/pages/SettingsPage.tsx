@@ -1,3 +1,5 @@
+import {brandText,getClinicProfile,getBillClinicProfile,clinicLogo} from '@/lib/clinicProfile';
+import {ClinicProfileSettings} from '@/components/ClinicProfileSettings';
 import { ServerSetup } from '@/components/ServerSetup';
 import { DiagnosticsPanel } from "@/components/DiagnosticsPanel";
 import { CloudSyncConnect } from "@/components/CloudSyncConnect";
@@ -55,12 +57,6 @@ export default function SettingsPage() {
   const [tab, setTab]             = useState<Tab>("clinic");
   const role                       = getCurrentRole();
   const isAdmin                    = role === "admin";
-
-  // ── Clinic Info ──
-  const [clinicName, setClinicName] = useState("Balaji Ortho Care Center");
-  const [docName,    setDocName]    = useState("Dr. S. S. Rathore (DMRT | BPT)");
-  const [phone,      setPhone]      = useState("+91 8005707783");
-  const [address,    setAddress]    = useState("Opp Govt Hospital, Bay Pass Road, Khinwara, Rajasthan – 306502");
 
   // ── Dashboard Modules ──
   const [modules, setModules] = useState<DashModules>(getDashModules());
@@ -281,10 +277,6 @@ export default function SettingsPage() {
   };
 
   // ── Save handlers ──
-  const handleSaveClinic = () => {
-    toast({ title: "✅ Clinic info saved", description: "Changes saved successfully" });
-  };
-
   const handleSaveModules = () => {
     saveDashModules(modules);
     toast({ title: "✅ Dashboard updated", description: "Reload dashboard to see changes" });
@@ -435,34 +427,7 @@ export default function SettingsPage() {
         </div>
 
         {/* ══════════ TAB 1: CLINIC INFO ══════════ */}
-        {tab === "clinic" && (
-          <Card className="dash-card">
-            <CardHeader>
-              <CardTitle style={{ fontSize: "15px", display: "flex", alignItems: "center", gap: "8px" }}>
-                <Building2 style={{ width: "16px", height: "16px", color: "#1e57b0" }} />
-                Clinic Information
-              </CardTitle>
-            </CardHeader>
-            <CardContent style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
-              {[
-                { label: "Clinic Name",   value: clinicName, set: setClinicName },
-                { label: "Doctor Name",   value: docName,    set: setDocName },
-                { label: "Phone Number",  value: phone,      set: setPhone },
-                { label: "Address",       value: address,    set: setAddress },
-              ].map(({ label, value, set }) => (
-                <div key={label} style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
-                  <Label style={{ fontSize: "12px", fontWeight: 600 }}>{label}</Label>
-                  <Input value={value} onChange={e => set(e.target.value)}
-                    style={{ fontSize: "13px", background: "#f8fafc" }} />
-                </div>
-              ))}
-              <Button onClick={handleSaveClinic} style={{ width: "fit-content", gap: "6px" }}>
-                <Check style={{ width: "14px", height: "14px" }} />
-                Save Changes
-              </Button>
-            </CardContent>
-          </Card>
-        )}
+        {tab === "clinic" && <ClinicProfileSettings isAdmin={isAdmin} />}
 
         {/* ══════════ TAB 2: DASHBOARD & UI ══════════ */}
         {tab === "dashboard" && (
@@ -1068,8 +1033,8 @@ export default function SettingsPage() {
               </CardHeader>
               <CardContent style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
                 <div style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
-                  <p style={{ fontSize: "16px", fontWeight: 700, color: "#1a2a4a" }}>Balaji Ortho Care Connect</p>
-                  <p style={{ fontSize: "12.5px", color: "#5a6a84" }}>Balaji Digital X-Ray &amp; Ortho Care Center</p>
+                  <p style={{ fontSize: "16px", fontWeight: 700, color: "#1a2a4a" }}>{brandText("Balaji Ortho Care Connect")}</p>
+                  <p style={{ fontSize: "12.5px", color: "#5a6a84" }}>{brandText("Balaji Digital X-Ray &amp; Ortho Care Center")}</p>
                 </div>
 
                 <div style={{
@@ -1104,8 +1069,7 @@ export default function SettingsPage() {
                 </div>
 
                 <p style={{ fontSize: "11px", color: "#8a9ab0", marginTop: "2px" }}>
-                  © {new Date().getFullYear()} Balaji Ortho Care Center · Developed &amp; maintained by Dr. Yash Rathore
-                </p>
+                  © {new Date().getFullYear()} {brandText(" Balaji Ortho Care Center · Developed &amp; maintained by Dr. Yash Rathore\n                ")}</p>
               </CardContent>
             </Card>
 

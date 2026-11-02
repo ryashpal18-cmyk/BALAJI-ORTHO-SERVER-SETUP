@@ -1,3 +1,4 @@
+import {brandText,getClinicProfile,getBillClinicProfile,clinicLogo} from '@/lib/clinicProfile';
 import { useState, useRef, useEffect, useCallback } from "react";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -74,7 +75,7 @@ export default function XRayViewer({ initialImage }: XRayViewerProps = {}) {
 
   // Report
   const [reportOpen, setReportOpen] = useState(false);
-  const [doctorName, setDoctorName] = useState("Dr. S. S. Rathore");
+  const [doctorName, setDoctorName] = useState(brandText("Dr. S. S. Rathore",false));
   const [reportNotes, setReportNotes] = useState("");
   const [patientName, setPatientName] = useState("");
   const [patientAge, setPatientAge] = useState("");
@@ -372,7 +373,7 @@ export default function XRayViewer({ initialImage }: XRayViewerProps = {}) {
       doc.text("BALAJI ORTHO CARE CENTER", 105, 12, { align: "center" });
       doc.setFontSize(10);
       doc.setFont("helvetica", "normal");
-      doc.text("Dr. S. S. Rathore | Khinwara, Rajasthan", 105, 20, { align: "center" });
+      doc.text(brandText("Dr. S. S. Rathore | Khinwara, Rajasthan",false), 105, 20, { align: "center" });
 
       // Patient Info
       doc.setTextColor(0, 0, 0);
@@ -423,7 +424,7 @@ export default function XRayViewer({ initialImage }: XRayViewerProps = {}) {
       doc.rect(0, 284, 210, 13, "F");
       doc.setTextColor(100, 100, 100);
       doc.setFontSize(8);
-      doc.text("Balaji Ortho Care Center | Khinwara | This report is generated digitally", 105, 291, { align: "center" });
+      doc.text(brandText("Balaji Ortho Care Center | Khinwara | This report is generated digitally",false), 105, 291, { align: "center" });
 
       doc.save(`XRay_Report_${patientName || "Patient"}_${Date.now()}.pdf`);
       notify("✅ Report PDF download ho gayi!");
@@ -436,7 +437,12 @@ export default function XRayViewer({ initialImage }: XRayViewerProps = {}) {
   const shareWhatsApp = () => {
     if (!images[activeIndex]) { notify("❌ Pehle X-ray load karo"); return; }
     const text = encodeURIComponent(
-      `🏥 *Balaji Ortho Care Center*\nPatient: ${patientName || "—"}\nDate: ${images[activeIndex].date || "—"}\nDoctor: ${doctorName}\n\n${reportNotes ? "Findings: " + reportNotes : ""}`
+      `🏥 *${brandText("Balaji Ortho Care Center",false)}*
+Patient: ${patientName || "—"}
+Date: ${images[activeIndex].date || "—"}
+Doctor: ${doctorName}
+
+${reportNotes ? "Findings: " + reportNotes : ""}`
     );
     window.open(`https://wa.me/?text=${text}`, "_blank");
     notify("📲 WhatsApp khul raha hai...");

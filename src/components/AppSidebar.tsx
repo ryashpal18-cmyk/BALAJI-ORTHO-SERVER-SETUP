@@ -1,3 +1,4 @@
+import {brandText,getClinicProfile,getBillClinicProfile,clinicLogo} from '@/lib/clinicProfile';
 import { queryClient } from "@/lib/queryClient";
 import {
   LayoutDashboard, BedDouble, Calendar, Receipt, Activity,
@@ -6,7 +7,7 @@ import {
   Package, ShieldCheck, ShieldPlus, Building2, CalendarCheck, Wallet, UserPlus, Search,
 } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
-import logo from "@/assets/logo.png";
+const logo = clinicLogo();
 import { useLocation, useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import {
@@ -109,10 +110,9 @@ export function AppSidebar() {
                 fontWeight: 800, fontSize: "13px", color: "white",
                 letterSpacing: "0.3px", lineHeight: 1.2,
               }}>
-                Balaji Ortho Care
-              </span>
+                {brandText("\n                Balaji Ortho Care\n              ")}</span>
               <span style={{ fontSize: "10px", color: "rgba(255,255,255,0.55)", marginTop: "2px" }}>
-                {isAdmin ? "Dr. S. S. Rathore" : userName}
+                {isAdmin ? brandText("Dr. S. S. Rathore",false) : userName}
               </span>
             </div>
           )}
@@ -182,7 +182,7 @@ export function AppSidebar() {
             background: "rgba(255,255,255,0.06)", marginBottom: "6px",
           }}>
             <p style={{ fontSize: "10px", color: "rgba(255,255,255,0.5)", lineHeight: 1.5 }}>
-              🏥 Balaji Ortho Care Center<br />
+              {brandText("\n              🏥 Balaji Ortho Care Center")}<br />
               <span style={{ color: "rgba(255,255,255,0.35)" }}>
                 {isAdmin ? "Admin" : `Staff · ${menuItems.length} pages`}
               </span>
