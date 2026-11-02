@@ -1,5 +1,6 @@
+import {getBillClinicProfile} from './clinicProfile';
 export function invoiceNumber(id: string) {
-  return `INV-${String(id).replace(/^local_/, '').toUpperCase()}`;
+  return `${getBillClinicProfile(id).invoicePrefix || 'INV'}-${String(id).replace(/^local_/, '').toUpperCase()}`;
 }
 export function legacyInvoiceNumbers(id: string) {
   const real = id.replace(/^local_/, '');

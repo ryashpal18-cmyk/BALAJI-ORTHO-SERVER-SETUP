@@ -1,3 +1,4 @@
+import {brandText,getClinicProfile,getBillClinicProfile,clinicLogo} from '@/lib/clinicProfile';
 // ─────────────────────────────────────────────────────────────────────────
 // Doctor registration + X-ray commission helpers
 // ─────────────────────────────────────────────────────────────────────────
@@ -11,7 +12,7 @@
 // karne par commission apne-aap sahi rehta hai.
 
 export const DEFAULT_DOCTOR_VALUE = "default";
-export const DEFAULT_DOCTOR_NAME = "Dr. S. S. Rathore";
+export const DEFAULT_DOCTOR_NAME = brandText("Dr. S. S. Rathore",false);
 export const DEFAULT_COMMISSION_PERCENT = 20;
 
 export type Doctor = {

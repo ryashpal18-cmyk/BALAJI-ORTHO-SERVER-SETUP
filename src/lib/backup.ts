@@ -1,3 +1,4 @@
+import {brandText,getClinicProfile,getBillClinicProfile,clinicLogo} from '@/lib/clinicProfile';
 import { captureAttachments, restoreAttachmentData, compactAttachmentBackup } from "./attachmentBackup";
 import { fetchCompleteTable, OPERATIONAL_TABLES } from "./completeFetch";
 import { getLocalSnapshot, restoreLocalSnapshot } from "./offlineDb";
@@ -184,7 +185,7 @@ async function performBackupNow(label: string, onProgress?:(done:number,total:nu
     attachments: attachmentFiles.complete ? "Self-contained verified photo/PDF bytes included" : "PARTIAL: see attachmentFiles.missing",
     generatedAt: now.toISOString(),
     label,
-    clinic: "Balaji Ortho Care Center",
+    clinic: brandText("Balaji Ortho Care Center",false),
     tables: backupData,
   });
   const jsonString = JSON.stringify(fullJson, null, 2);

@@ -1,3 +1,4 @@
+import {brandText,getClinicProfile,getBillClinicProfile,clinicLogo} from '@/lib/clinicProfile';
 // Patient-facing Hindi bill SMS. Service names come from billing's "name:amount|..." format.
 // Never infer a follow-up or cast removal date from a service or an auto-created case.
 export function billServiceNames(service: unknown): string[] {
@@ -30,7 +31,7 @@ export function buildBillWelcomeMessage(patientName?: string, withPdf = false, i
   const name = (patientName || '').replace(/[\r\n]+/g, ' ').trim() || 'मरीज';
   return [
     `नमस्कार ${name} जी,`,
-    'BALAJI DIGITAL X-RAY & ORTHO CARE CENTER में आपका हार्दिक स्वागत है।',
+    brandText('BALAJI DIGITAL X-RAY & ORTHO CARE CENTER में आपका हार्दिक स्वागत है।',false),
     '',
     'अपनी सेहत की देखभाल के लिए हम पर भरोसा करने का धन्यवाद।' +
       (withPdf ? ' आपके बिल का विवरण साथ दी गई PDF में है।' : ''),
@@ -38,8 +39,8 @@ export function buildBillWelcomeMessage(patientName?: string, withPdf = false, i
     ...(invoiceDetails.length ? [...invoiceDetails, ''] : []),
     'हम आपके शीघ्र स्वस्थ होने की कामना करते हैं।',
     '',
-    'डॉ. एस. एस. राठौड़',
-    'संपर्क: 80057 07783',
+    brandText('डॉ. एस. एस. राठौड़',false),
+    brandText('संपर्क: 80057 07783',false),
   ].join('\n');
 }
 
