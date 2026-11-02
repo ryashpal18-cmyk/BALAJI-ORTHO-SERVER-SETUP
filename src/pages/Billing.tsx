@@ -1,3 +1,4 @@
+import {brandText,getClinicProfile,getBillClinicProfile,clinicLogo} from '@/lib/clinicProfile';
 import { billCareCategory, buildBillWelcomeMessage } from "@/lib/billSmsMessage";
 import { cashTallyForPeriod } from "@/lib/collectionReport";
 import QRCode from "qrcode";
@@ -120,7 +121,7 @@ function getWhatsAppBillMessage(
 
 function getWhatsAppReminderMessage(patient: string, total: number, paid: number, due: number) {
   return `नमस्ते ${patient} जी 🙏
-Balaji Ortho Care Center की सूचना।
+${brandText("Balaji Ortho Care Center",false)} की सूचना।
 
 आपका बिल विवरण:
 💰 कुल बिल: ₹${total}
@@ -130,10 +131,13 @@ Balaji Ortho Care Center की सूचना।
 कृपया ₹${due} जल्द जमा करवाएं।
 
 धन्यवाद 🙏
-Balaji Ortho Care Center`;
+${brandText("Balaji Ortho Care Center",false)}`;
 }
 
 function buildInvoiceHTML(bill: any, logoUrl: string = "/images/logo.png") {
+  const issuer=getBillClinicProfile(bill.id);
+  logoUrl=issuer.logo||clinicLogo();
+  const paymentBlock=issuer.paymentQr?`<div style="text-align:center;margin:8px 0"><img alt="Payment on QR" src="${escapeHtml(issuer.paymentQr)}" width="160" height="160"><div>Payment on QR · ${escapeHtml(issuer.upi)}</div></div>`:'';
   const patientName = escapeHtml((bill.patients as any)?.name || "Patient");
   const patientAge = (bill.patients as any)?.age || "—";
   const patientGender = (bill.patients as any)?.gender || "—";
@@ -211,8 +215,8 @@ function buildInvoiceHTML(bill: any, logoUrl: string = "/images/logo.png") {
         <div style="display:flex;align-items:center;gap:10px;">
           <img src="${logoUrl}" style="width:36px;height:36px;object-fit:contain;border-radius:6px;background:#fff;padding:2px;" alt="Logo" crossorigin="anonymous" />
           <div>
-            <div style="font-size:14px;font-weight:800;color:#ffffff;letter-spacing:0.3px;">Balaji Ortho Care Center</div>
-            <div style="font-size:8px;color:#bae6fd;margin-top:1px;">Dr. S. S. Rathore (DMRT | BPT) &nbsp;|&nbsp; Khinwara, Raj. – 306502</div>
+            <div style="font-size:14px;font-weight:800;color:#ffffff;letter-spacing:0.3px;">${brandText("Balaji Ortho Care Center",true,getBillClinicProfile(bill.id))}</div>
+            <div style="font-size:8px;color:#bae6fd;margin-top:1px;">${brandText("Dr. S. S. Rathore (DMRT | BPT)",true,getBillClinicProfile(bill.id))} &nbsp;|&nbsp; ${brandText("Khinwara, Raj. – 306502",true,getBillClinicProfile(bill.id))}</div>
           </div>
         </div>
         <div style="text-align:right;">
@@ -267,9 +271,10 @@ function buildInvoiceHTML(bill: any, logoUrl: string = "/images/logo.png") {
         </table>
 
         ${bill.familyQr ? `<div style="display:flex;align-items:center;gap:10px;padding:6px 0"><img src="${bill.familyQr}" alt="Family Profile QR" style="width:96px;height:96px"/><div style="font-size:9px">Clinic Family Profile<br>Login required</div></div>` : ""}
+        ${paymentBlock}
         <!-- Footer -->
         <div style="display:flex;justify-content:space-between;align-items:center;border-top:1px solid #e2e8f0;padding-top:4px;margin-top:2px;">
-          <span style="font-size:7.5px;color:#94a3b8;">📞 +91 8005707783 &nbsp;|&nbsp; Opp Govt Hospital, Bay Pass Road, Khinwara</span>
+          <span style="font-size:7.5px;color:#94a3b8;">📞 ${brandText("+91 8005707783",true,getBillClinicProfile(bill.id))} &nbsp;|&nbsp; ${brandText("Opp Govt Hospital, Bay Pass Road, Khinwara",true,getBillClinicProfile(bill.id))}</span>
           <span style="font-size:7.5px;color:#0891b2;font-weight:600;">Thank you for your trust 🙏</span>
         </div>
       </div>
@@ -359,7 +364,7 @@ async function getBase64Image(url: string): Promise<string> {
 }
 
 async function generateAndUploadPDF(bill: any): Promise<string | null> {
-  const logoUrl = await getBase64Image(window.location.origin + "/images/logo.png");
+  const logoUrl = getBillClinicProfile(bill.id).logo || clinicLogo();
   bill = {...bill, familyQr:await QRCode.toDataURL("balajiclinic://family/"+String(bill.patient_id).replace(/^local_/,""),{width:180,margin:4})};
   const html = buildInvoiceHTML(bill, logoUrl);
 

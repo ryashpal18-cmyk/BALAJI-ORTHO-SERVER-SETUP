@@ -1,3 +1,4 @@
+import {brandText,getClinicProfile,getBillClinicProfile,clinicLogo} from '@/lib/clinicProfile';
 import { safeReportHtml, writeReportDocument, escapeHtml } from "@/lib/safeReportHtml";
 import { isOnline } from "@/lib/offlineSync";
 import { cacheGetAll } from "@/lib/offlineDb";
@@ -53,15 +54,81 @@ const getLeaves = (): string[] => { try { return JSON.parse(localStorage.getItem
 const setLeaveStore = (l: string[]) => localStorage.setItem(LEAVE_KEY, JSON.stringify(l));
 
 // ─── SMS Templates ───────────────────────────
-const tplReminder    = (name: string, date: string) => `नमस्ते ${name} जी 🙏\n\nआपका Follow-up ${fmtDate(date)} को है।\nकृपया समय पर पहुँचें।\n\nBalaji Ortho Care Center 🏥`;
-const tplToday       = (name: string)               => `नमस्ते ${name} जी 🙏\n\nआज आपका Follow-up है।\nकृपया सुबह 11:30 बजे तक पहुँचें।\n\nBalaji Ortho Care Center 🏥`;
-const tplPrecaution  = (name: string, bp: string, next: string) => `नमस्ते ${name} जी 🙏\n\nPlaster (${bp}) की सावधानियां:\n✅ गीला न होने दें\n✅ भारी वजन न उठाएं\n✅ सूजन पर तुरंत आएं\n✅ Follow-up जरूर करवाएं\n\nNext Visit: ${next?fmtDate(next):"—"}\n\nDr. Rathore\nBalaji Ortho Care Center 🏥`;
-const tplRemoved     = (name: string, bp: string)   => `नमस्ते ${name} जी 🙏\n\nबधाई हो! 🎉\nआपका प्लास्टर (${bp}) हटा दिया गया है।\n\n✅ धीरे-धीरे चलें\n✅ भारी काम से बचें\n\nस्वस्थ रहें 💪\nDr. Rathore\nBalaji Ortho Care Center 🏥`;
-const tplLeave       = (name: string, date: string) => `नमस्ते ${name} जी 🙏\n\nDr. Rathore आज ${fmtDate(date)} को उपलब्ध नहीं हैं।\nनई Appointment के लिए संपर्क करें।\n\nअसुविधा के लिए खेद है 🙏\nBalaji Ortho Care Center 🏥`;
-const tplLongLeave   = (name: string, from: string, to: string) => `नमस्ते ${name} जी 🙏\n\nDr. Rathore ${fmtDate(from)} से ${fmtDate(to)} तक उपलब्ध नहीं रहेंगे।\n\nआपकी सेवा में सदैव तत्पर हैं 🙏\nBalaji Ortho Care Center 🏥`;
-const tplDiet        = (name: string, bp: string)   => `नमस्ते ${name} जी 🙏\n\n${bp} Fracture Diet Tips:\n${DIET_BY_PART[bp]||DIET_BY_PART.default}\n\nजल्दी ठीक हों! 💪\nDr. Rathore\nBalaji Ortho Care Center 🏥`;
-const tplExercise    = (name: string, bp: string)   => `नमस्ते ${name} जी 🙏\n\n${bp} Recovery Exercises:\n${EXERCISE_BY_PART[bp]||EXERCISE_BY_PART.default}\n\nDr. Rathore\nBalaji Ortho Care Center 🏥`;
-const tplCare        = (name: string, bp: string, next: string) => `नमस्ते ${name} जी 🙏\n\n${bp} Plaster Care:\n✅ गीला न होने दें\n✅ खुजली में अंदर कुछ न डालें\n✅ उँगलियाँ नीली पड़ें तो आएं\n✅ सूजन बढ़े तो आएं\n\nNext Visit: ${next?fmtDate(next):"—"}\n\nDr. Rathore\nBalaji Ortho Care Center 🏥`;
+const tplReminder    = (name: string, date: string) => `नमस्ते ${name} जी 🙏
+
+आपका Follow-up ${fmtDate(date)} को है।
+कृपया समय पर पहुँचें।
+
+${brandText("Balaji Ortho Care Center",false)} 🏥`;
+const tplToday       = (name: string)               => `नमस्ते ${name} जी 🙏
+
+आज आपका Follow-up है।
+कृपया सुबह 11:30 बजे तक पहुँचें।
+
+${brandText("Balaji Ortho Care Center",false)} 🏥`;
+const tplPrecaution  = (name: string, bp: string, next: string) => `नमस्ते ${name} जी 🙏
+
+Plaster (${bp}) की सावधानियां:
+✅ गीला न होने दें
+✅ भारी वजन न उठाएं
+✅ सूजन पर तुरंत आएं
+✅ Follow-up जरूर करवाएं
+
+Next Visit: ${next?fmtDate(next):"—"}
+
+${brandText("Dr. Rathore",false)}
+${brandText("Balaji Ortho Care Center",false)} 🏥`;
+const tplRemoved     = (name: string, bp: string)   => `नमस्ते ${name} जी 🙏
+
+बधाई हो! 🎉
+आपका प्लास्टर (${bp}) हटा दिया गया है।
+
+✅ धीरे-धीरे चलें
+✅ भारी काम से बचें
+
+स्वस्थ रहें 💪
+${brandText("Dr. Rathore",false)}
+${brandText("Balaji Ortho Care Center",false)} 🏥`;
+const tplLeave       = (name: string, date: string) => `नमस्ते ${name} जी 🙏
+
+${brandText("Dr. Rathore",false)} आज ${fmtDate(date)} को उपलब्ध नहीं हैं।
+नई Appointment के लिए संपर्क करें।
+
+असुविधा के लिए खेद है 🙏
+${brandText("Balaji Ortho Care Center",false)} 🏥`;
+const tplLongLeave   = (name: string, from: string, to: string) => `नमस्ते ${name} जी 🙏
+
+${brandText("Dr. Rathore",false)} ${fmtDate(from)} से ${fmtDate(to)} तक उपलब्ध नहीं रहेंगे।
+
+आपकी सेवा में सदैव तत्पर हैं 🙏
+${brandText("Balaji Ortho Care Center",false)} 🏥`;
+const tplDiet        = (name: string, bp: string)   => `नमस्ते ${name} जी 🙏
+
+${bp} Fracture Diet Tips:
+${DIET_BY_PART[bp]||DIET_BY_PART.default}
+
+जल्दी ठीक हों! 💪
+${brandText("Dr. Rathore",false)}
+${brandText("Balaji Ortho Care Center",false)} 🏥`;
+const tplExercise    = (name: string, bp: string)   => `नमस्ते ${name} जी 🙏
+
+${bp} Recovery Exercises:
+${EXERCISE_BY_PART[bp]||EXERCISE_BY_PART.default}
+
+${brandText("Dr. Rathore",false)}
+${brandText("Balaji Ortho Care Center",false)} 🏥`;
+const tplCare        = (name: string, bp: string, next: string) => `नमस्ते ${name} जी 🙏
+
+${bp} Plaster Care:
+✅ गीला न होने दें
+✅ खुजली में अंदर कुछ न डालें
+✅ उँगलियाँ नीली पड़ें तो आएं
+✅ सूजन बढ़े तो आएं
+
+Next Visit: ${next?fmtDate(next):"—"}
+
+${brandText("Dr. Rathore",false)}
+${brandText("Balaji Ortho Care Center",false)} 🏥`;
 
 // ─── Print Functions ──────────────────────────
 function printRemovalSlip(c: any) {
@@ -81,8 +148,8 @@ function printRemovalSlip(c: any) {
     .footer{font-size:10px;color:#94a3b8;text-align:center;margin-top:16px;border-top:1px solid #e2e8f0;padding-top:8px}
     @media print{button{display:none}}
   </style></head><body>
-  <div class="logo">Balaji Ortho Care Center</div>
-  <div class="sub">Dr. S. S. Rathore (DMRT | BPT) · Khinwara, Raj. · 📞 8005707783</div>
+  <div class="logo">${brandText("Balaji Ortho Care Center",true)}</div>
+  <div class="sub">${brandText("Dr. S. S. Rathore (DMRT | BPT)",true)} · ${brandText("Khinwara",true)}, Raj. · 📞 ${brandText("8005707783",true)}</div>
   <div class="title">🎉 Plaster Removal Certificate</div>
   <div class="row"><span class="label">Patient नाम</span><span class="val">${name}</span></div>
   <div class="row"><span class="label">Mobile</span><span class="val">${mob||"—"}</span></div>
@@ -97,7 +164,7 @@ function printRemovalSlip(c: any) {
     <li>धीरे-धीरे चलें, जल्दी न करें</li><li>भारी वजन न उठाएं अगले 2 हफ्ते</li>
     <li>Physiotherapy करें</li><li>जरूरत पड़े तो तुरंत आएं</li>
   </ul></div>
-  <div class="sign">Dr. S. S. Rathore<br/>DMRT | BPT<br/>Balaji Ortho Care Center, Khinwara</div>
+  <div class="sign">${brandText("Dr. S. S. Rathore",true)}<br/>${brandText("DMRT | BPT",true)}<br/>${brandText("Balaji Ortho Care Center",true)}, ${brandText("Khinwara",true)}</div>
   <div class="footer">दिनांक: ${fmtDate(todayIso())} · यह certificate hospital record के लिए है।</div>
   <button onclick="window.print()" style="margin-top:12px;padding:8px 18px;background:#1e3a5f;color:#fff;border:none;border-radius:8px;cursor:pointer">🖨 Print</button>
   <script>window.onload=function(){window.print()}</script>
@@ -122,15 +189,20 @@ function printCareInstructions(c: any) {
     .footer{font-size:10px;color:#94a3b8;text-align:center;margin-top:14px;border-top:1px solid #e2e8f0;padding-top:8px}
     @media print{button{display:none}}
   </style></head><body>
-  <div class="logo">Balaji Ortho Care Center</div>
-  <div class="sub">Dr. S. S. Rathore (DMRT | BPT) · 📞 8005707783</div>
+  <div class="logo">${brandText("Balaji Ortho Care Center",true)}</div>
+  <div class="sub">${brandText("Dr. S. S. Rathore (DMRT | BPT)",true)} · 📞 ${brandText("8005707783",true)}</div>
   <div class="badge">🦴 ${name} — ${bp} Care Guide</div>
   <div class="section"><div class="sh">⚠️ Plaster Precautions</div>
-    <pre>✅ प्लास्टर गीला न होने दें\n✅ खुजली में अंदर कुछ न डालें\n✅ उँगलियाँ नीली हों तो तुरंत आएं\n✅ सूजन बढ़े तो तुरंत आएं\n✅ Follow-up miss न करें\nNext Visit: ${fmtDate(c.next_followup_date)}</pre>
+    <pre>✅ प्लास्टर गीला न होने दें
+✅ खुजली में अंदर कुछ न डालें
+✅ उँगलियाँ नीली हों तो तुरंत आएं
+✅ सूजन बढ़े तो तुरंत आएं
+✅ Follow-up miss न करें
+Next Visit: ${fmtDate(c.next_followup_date)}</pre>
   </div>
   <div class="section"><div class="sh">🥛 Diet Tips</div><pre>${diet}</pre></div>
   <div class="section"><div class="sh">🏃 Exercises</div><pre>${exer}</pre></div>
-  <div class="footer">Dr. S. S. Rathore · Balaji Ortho Care Center, Khinwara · दिनांक: ${fmtDate(todayIso())}</div>
+  <div class="footer">${brandText("Dr. S. S. Rathore",true)} · ${brandText("Balaji Ortho Care Center",true)}, ${brandText("Khinwara",true)} · दिनांक: ${fmtDate(todayIso())}</div>
   <button onclick="window.print()" style="margin-top:12px;padding:8px 18px;background:#6366f1;color:#fff;border:none;border-radius:8px;cursor:pointer">🖨 Print</button>
   <script>window.onload=function(){window.print()}</script>
   </body></html>`);
@@ -164,8 +236,8 @@ function printMonthlyReport(cases: any[], followups: any[]) {
     .bar{height:14px;background:#6366f1;border-radius:99px}
     @media print{button{display:none}}
   </style></head><body>
-  <div class="logo">Balaji Ortho Care Center</div>
-  <div class="sub">Dr. S. S. Rathore (DMRT | BPT) · Khinwara, Raj. · Monthly Ortho Report — ${new Date().toLocaleDateString("hi-IN",{month:"long",year:"numeric"})}</div>
+  <div class="logo">${brandText("Balaji Ortho Care Center",true)}</div>
+  <div class="sub">${brandText("Dr. S. S. Rathore (DMRT | BPT)",true)} · ${brandText("Khinwara",true)}, Raj. · Monthly Ortho Report — ${new Date().toLocaleDateString("hi-IN",{month:"long",year:"numeric"})}</div>
   <div class="stats">
     <div class="box"><div class="v">${cases.length}</div><div class="l">Total Cases</div></div>
     <div class="box"><div class="v" style="color:#f59e0b">${active.length}</div><div class="l">Active</div></div>
@@ -1098,7 +1170,7 @@ export default function Ortho() {
             </div>
             <div>
               <h1 style={{fontSize:22,fontWeight:800,margin:0,background:"linear-gradient(135deg,#6366f1,#8b5cf6)",WebkitBackgroundClip:"text",WebkitTextFillColor:"transparent"}}>Ortho / Fracture Panel</h1>
-              <p style={{fontSize:12,color:"#6b7280",margin:0}}>Dr. S. S. Rathore · Balaji Ortho Care Center, Khinwara</p>
+              <p style={{fontSize:12,color:"#6b7280",margin:0}}>{brandText("Dr. S. S. Rathore · Balaji Ortho Care Center, Khinwara")}</p>
             </div>
           </div>
           <span style={{fontSize:11,padding:"6px 14px",borderRadius:99,background:"#f0fdf4",color:"#16a34a",fontWeight:700,border:"1px solid #bbf7d0"}}>🟢 Offline Ready</span>
@@ -1421,7 +1493,7 @@ export default function Ortho() {
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Bulk SMS Confirm?</AlertDialogTitle>
-            <AlertDialogDescription>{activeCases.length} active patients ko SMS jayega — Dr. Rathore {fmtDate(longFrom)} se {fmtDate(longTo)} tak unavailable hain.</AlertDialogDescription>
+            <AlertDialogDescription>{activeCases.length} {brandText(" active patients ko SMS jayega — Dr. Rathore ")}{fmtDate(longFrom)} se {fmtDate(longTo)} tak unavailable hain.</AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>

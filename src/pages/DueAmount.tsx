@@ -1,3 +1,4 @@
+import {brandText,getClinicProfile,getBillClinicProfile,clinicLogo} from '@/lib/clinicProfile';
 import { CollectPayment } from "@/components/CollectPayment";
 import { PaymentReceipts } from "@/components/PaymentReceipts";
 import { businessDate } from "@/lib/businessDate";
@@ -35,7 +36,18 @@ function openWhatsAppDue(mobile: string, message: string) {
 }
 
 function getDueMessage(patientName: string, total: number, paid: number, due: number) {
-  return `नमस्ते ${patientName} जी 🙏\n\nBalaji Ortho Care Center की ओर से सूचना।\n\n💰 कुल राशि: ₹${total}\n✅ जमा: ₹${paid}\n❗ बकाया राशि: ₹${due}\n\nकृपया ₹${due} जल्द जमा करवाएं।\n\n📞 +91 8005707783\nधन्यवाद 🙏`;
+  return `नमस्ते ${patientName} जी 🙏
+
+${brandText("Balaji Ortho Care Center",false)} की ओर से सूचना।
+
+💰 कुल राशि: ₹${total}
+✅ जमा: ₹${paid}
+❗ बकाया राशि: ₹${due}
+
+कृपया ₹${due} जल्द जमा करवाएं।
+
+📞 ${brandText("+91 8005707783",false)}
+धन्यवाद 🙏`;
 }
 
 export default function DueAmount() {

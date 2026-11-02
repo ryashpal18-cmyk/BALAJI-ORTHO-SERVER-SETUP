@@ -1,3 +1,4 @@
+import {brandText,getClinicProfile,getBillClinicProfile,clinicLogo} from '@/lib/clinicProfile';
 import { VillageMessagePanel } from "@/components/VillageMessagePanel";
 import { useEffect, useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
@@ -37,7 +38,7 @@ export default function PatientSearch() {
     <p className="text-sm text-muted-foreground">नाम, मोबाइल या गाँव से मरीज खोजें। यह सूची इस PC के सेव रिकॉर्ड और चुनी हुई branch की है। Shared mobile वाले परिवार के सभी मरीज अलग दिखेंगे।</p>
     <div className="grid gap-4 rounded-xl border bg-card p-4 lg:grid-cols-3">
       <label className="space-y-2 text-sm">नाम / मोबाइल नंबर<Input aria-label="Patient name or mobile" placeholder="नाम या पूरा / कुछ अंकों वाला मोबाइल" value={query} onChange={e=>setQuery(e.target.value)}/></label>
-      <label className="space-y-2 text-sm">गाँव / पते में खोजें<Input aria-label="Village search" placeholder="जैसे Khinwara / खिंवाड़ा" value={village} onChange={e=>{setVillage(e.target.value);setExact(null);}}/></label>
+      <label className="space-y-2 text-sm">गाँव / पते में खोजें<Input aria-label="Village search" placeholder={brandText("जैसे Khinwara / खिंवाड़ा",false)} value={village} onChange={e=>{setVillage(e.target.value);setExact(null);}}/></label>
       <label className="space-y-2 text-sm">सेव गाँव / पता चुनें<select aria-label="Saved village" className="flex h-10 w-full rounded-md border bg-background px-3" value={exact===null?"all":"v:"+exact} onChange={e=>{setExact(e.target.value==="all"?null:e.target.value.slice(2));setVillage("");}}><option value="all">सभी गाँव / पते</option>{options.map(o=><option key={o.key} value={"v:"+o.key}>{o.label} ({o.count})</option>)}</select></label>
     </div>
     <p className="text-xs text-muted-foreground">गाँव OPD के Village / Address से लिया गया है। पूरे पते में गाँव लिखा हो तो “गाँव / पते में खोजें” इस्तेमाल करें। हिंदी और English की अलग spelling अपने आप एक गाँव नहीं मानी जाती।</p>

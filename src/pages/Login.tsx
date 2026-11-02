@@ -1,3 +1,4 @@
+import {brandText,getClinicProfile,getBillClinicProfile,clinicLogo} from '@/lib/clinicProfile';
 import { queryClient } from "@/lib/queryClient";
 import { migrateLegacyIndexedDbIfNeeded } from "@/lib/offlineDb";
 import { startAutoSync } from "@/lib/offlineSync";
@@ -7,7 +8,7 @@ import { Eye, EyeOff, User, Lock, Shield, Phone, LogIn } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
-import logoImg from "@/assets/logo.png";
+const logoImg = clinicLogo();
 import bg1 from "@/assets/dash-bg1.png";
 import bg2 from "@/assets/dash-bg2.png";
 import bg3 from "@/assets/dash-bg3.png";
@@ -166,7 +167,7 @@ export default function Login() {
         }}>
           <img
             src={logoImg}
-            alt="Balaji Ortho Care Logo"
+            alt={brandText("Balaji Ortho Care Logo",false)}
             style={{
               width: "min(420px, 38vw)", height: "auto",
               filter: "drop-shadow(0 8px 36px rgba(0,0,0,0.45))",
@@ -181,8 +182,7 @@ export default function Login() {
             textShadow: "0 2px 10px rgba(0,0,0,0.55)",
             textAlign: "center",
           }}>
-            Khinwara, Rajasthan — 306502
-          </p>
+            {brandText("\n            Khinwara, Rajasthan\n          ")}</p>
           <p style={{
             fontSize: "clamp(11px,1vw,14px)",
             color: "rgba(255,255,255,0.65)",
@@ -190,8 +190,7 @@ export default function Login() {
             textShadow: "0 2px 8px rgba(0,0,0,0.4)",
             textAlign: "center",
           }}>
-            Dr. S. S. Rathore (DMRT | BPT)
-          </p>
+            {brandText("\n            Dr. S. S. Rathore (DMRT | BPT)\n          ")}</p>
 
           {/* Slideshow dots */}
           <div style={{ display: "flex", gap: "8px", marginTop: "28px" }}>
@@ -259,11 +258,9 @@ export default function Login() {
               marginBottom: "2px", textAlign: "center",
               textShadow: "0 2px 8px rgba(0,0,0,0.25)",
             }}>
-              Balaji Ortho Care
-            </h2>
+              {brandText("\n              Balaji Ortho Care\n            ")}</h2>
             <p style={{ fontSize: "12px", color: "rgba(255,255,255,0.80)", textAlign: "center" }}>
-              Dr. S. S. Rathore (DMRT | BPT) · Khinwara
-            </p>
+              {brandText("\n              Dr. S. S. Rathore (DMRT | BPT) · Khinwara\n            ")}</p>
           </div>
 
           {/* Card Body */}
@@ -388,8 +385,7 @@ export default function Login() {
               justifyContent: "center", gap: "5px", color: "#8a9ab0", fontSize: "11px",
             }}>
               <Phone style={{ width: "12px", height: "12px" }} />
-              Contact: +91 8005707783
-            </div>
+              {brandText("\n              Contact: +91 8005707783\n            ")}</div>
           </div>
         </div>
       </div>
@@ -407,7 +403,7 @@ export default function Login() {
           <Shield style={{ width: "13px", height: "13px" }} />
           <span>Your Health, Our Priority</span>
         </div>
-        <span>© 2024 Balaji Ortho Care Center. All Rights Reserved.</span>
+        <span>{brandText("© 2024 Balaji Ortho Care Center. All Rights Reserved.")}</span>
       </div>
     </div>
   );

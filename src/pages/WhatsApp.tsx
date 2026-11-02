@@ -1,3 +1,4 @@
+import {brandText,getClinicProfile,getBillClinicProfile,clinicLogo} from '@/lib/clinicProfile';
 import { normalizeIndianMobile } from "@/lib/mobile";
 import { personalizeMessage } from "@/lib/messagePersonalization";
 import { OutreachStatus } from "@/components/OutreachStatus";
@@ -16,9 +17,9 @@ import { usePatients } from "@/hooks/useDatabase";
 import { toast } from "@/hooks/use-toast";
 
 const TEMPLATES: Record<string, string> = {
-  welcome: `🙏 Namaste [NAME],\n\nBalaji Ortho Care Center में आपका स्वागत है!\n\n👨‍⚕️ Dr. S. S. Rathore (DMRT | BPT)\n📍 Opp Govt Hospital, Bay Pass Road, Khinwara, Raj. – 306502\n📞 +91 8005707783\n\n🌐 Online Reports & Appointments:\nhttps://balaji-health-hub.lovable.app/\n\nधन्यवाद! 🙏`,
-  reminder: `Namaste [NAME],\n\nBalaji Ortho Care Center se nivedan hai ki aapka payment pending hai.\nKripya clinic par jama karein.\n\n📞 +91 8005707783\n🌐 https://balaji-health-hub.lovable.app/\n\nDhanyawad! 🙏`,
-  followup: `🙏 Namaste [NAME],\n\nAapka follow-up visit Balaji Ortho Care Center mein due hai.\nKripya appointment lein.\n\n📞 +91 8005707783\n🌐 https://balaji-health-hub.lovable.app/\n\nDhanyawad!`,
+  welcome: brandText(`🙏 Namaste [NAME],\n\nBalaji Ortho Care Center में आपका स्वागत है!\n\n👨‍⚕️ Dr. S. S. Rathore (DMRT | BPT)\n📍 Opp Govt Hospital, Bay Pass Road, Khinwara, Raj. – 306502\n📞 +91 8005707783\n\n🌐 Online Reports & Appointments:\nhttps://balaji-health-hub.lovable.app/\n\nधन्यवाद! 🙏`,false),
+  reminder: brandText(`Namaste [NAME],\n\nBalaji Ortho Care Center se nivedan hai ki aapka payment pending hai.\nKripya clinic par jama karein.\n\n📞 +91 8005707783\n🌐 https://balaji-health-hub.lovable.app/\n\nDhanyawad! 🙏`,false),
+  followup: brandText(`🙏 Namaste [NAME],\n\nAapka follow-up visit Balaji Ortho Care Center mein due hai.\nKripya appointment lein.\n\n📞 +91 8005707783\n🌐 https://balaji-health-hub.lovable.app/\n\nDhanyawad!`,false),
   custom: "",
 };
 

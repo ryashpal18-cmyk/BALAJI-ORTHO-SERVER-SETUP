@@ -1,3 +1,4 @@
+import {brandText,getClinicProfile,getBillClinicProfile,clinicLogo} from '@/lib/clinicProfile';
 import { cashTallyForPeriod, periodCollections } from "@/lib/collectionReport";
 import { safeReportHtml, writeReportDocument, escapeHtml } from "@/lib/safeReportHtml";
 import { businessDate } from "@/lib/businessDate";
@@ -74,9 +75,9 @@ function printDailyReport(
     @media print{button{display:none}}
   </style></head><body>
   <div class="header">
-    <div class="clinic">Balaji Ortho Care Center</div>
-    <div class="muted">Dr. S. S. Rathore (DMRT | BPT) · Opp Govt Hospital, Bay Pass Road, Khinwara, Raj. – 306502</div>
-    <div class="muted">Phone: +91 8005707783</div>
+    <div class="clinic">${brandText("Balaji Ortho Care Center",true)}</div>
+    <div class="muted">${brandText("Dr. S. S. Rathore (DMRT | BPT)",true)} · ${brandText("Opp Govt Hospital, Bay Pass Road, Khinwara, Raj. – 306502",true)}</div>
+    <div class="muted">Phone: ${brandText("+91 8005707783",true)}</div>
   </div>
   <h2>Daily Report — ${rangeLabel}</h2><p class="muted">Income जमा होने की तारीख से है; पुराने bills का इस अवधि में जमा बकाया शामिल है।</p>
   <div class="summary">
