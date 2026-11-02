@@ -5,7 +5,6 @@ const {randomUUID,createHash}=require('crypto'),{familyNumber,normId}=require('.
 
 function createOutreachService({store,allowed,whatsapp,sendSMS,now=Date.now,intervalMs=30000,logger}){
   const brandText=(v,html=false)=>clinicProfiles.brandText(v,html,clinicProfiles.current(store));
-  const clinic=clinicProfiles.current(store).name;
  const report=createMessagingLog(logger,'outreach-service',now);
  const key='outreach:v1';let busy=false,nextSend=0,gateway=null;
  const initial=()=>({settings:{channels:['whatsapp','sms'],enabled:true},seen:[],campaigns:[]});
@@ -41,7 +40,7 @@ function createOutreachService({store,allowed,whatsapp,sendSMS,now=Date.now,inte
     if(store.metaGet('outreach:receipt-origin:'+identity)!==true||typeof r.id!=='string'||!Number.isFinite(Date.parse(bill.created_at))||!s.settings.enabled||r.legacy||String(r.id).startsWith('reclass:')||!(Number(r.amount)>0)||!Number.isFinite(Date.parse(r.paid_at))||Date.parse(r.paid_at)<=Date.parse(bill.created_at)||['cancelled','canceled','deleted','void'].includes(String(bill.status).toLowerCase()))continue;
     const person=people.find(p=>normId(p.id)===normId(bill.patient_id)),mobile=familyNumber(person?.mobile);const remaining=Math.max(Number(bill.amount||0)-Number(bill.discount||0)-collected,0);
     const date=new Date(r.paid_at).toLocaleDateString('en-IN',{timeZone:'Asia/Kolkata'});
-    const message=`नमस्ते ${person?.name||'मित्र'} जी, ${date} को आपका ₹${Number(r.amount).toLocaleString('en-IN')} भुगतान जमा हुआ। बिल INV-${normId(bill.id).toUpperCase()}। इस भुगतान के बाद शेष बकाया ₹${Math.round(remaining*100)/100}। धन्यवाद — ${clinic}`;
+    const message=`नमस्ते ${person?.name||'मित्र'} जी, ${date} को आपका ₹${Number(r.amount).toLocaleString('en-IN')} भुगतान जमा हुआ। बिल INV-${normId(bill.id).toUpperCase()}। इस भुगतान के बाद शेष बकाया ₹${Math.round(remaining*100)/100}। धन्यवाद — ${clinicProfiles.current(store).name}`;
     s.campaigns.push({id:'receipt:'+identity,kind:'receipt',title:'बकाया भुगतान पुष्टि',state:'active',createdAt:new Date(now()).toISOString(),billId:normId(bill.id),receiptId:r.id,jobs:s.settings.channels.map(channel=>({id:randomUUID(),patientId:normId(person?.id),name:person?.name||'',mobile:mobile||'',channel,message,state:mobile?'queued':'failed',error:mobile?'':'मरीज का सही मोबाइल नंबर उपलब्ध नहीं है।',attempts:0}))});
   }}if(changed){s.seen=[...seen];save(s);}
  }
