@@ -17,6 +17,14 @@ app.on('browser-window-created',(_event,win)=>{
    let visible=false;
    for(let n=0;n<50;n++){visible=await win.webContents.executeJavaScript(`!!document.getElementById('server-url')`);if(visible)break;await new Promise(r=>setTimeout(r,100));}
    assert(visible,'Settings Server Setup card not rendered');
+   const saved=await win.webContents.executeJavaScript(`window.electron.clinicProfile.save({name:'Synthetic Hospital',doctor:'Test Doctor',qualification:'MS',registration:'TEST-001',phone:'9000000000',address:'Synthetic address',invoicePrefix:'TEST'})`);assert(saved.success);
+   await new Promise(resolve=>{win.webContents.once('did-finish-load',resolve);win.reload();});
+   await new Promise(resolve=>setTimeout(resolve,1000));
+   assert.equal(await win.webContents.executeJavaScript("document.getElementById('clinic-name')?.value"),'Synthetic Hospital');
+   const brand=await win.webContents.executeJavaScript('window.electron.clinicProfile.get()');assert.equal(brand.name,'Synthetic Hospital');
+   assert.equal(win.getTitle(),'Synthetic Hospital');
+   assert(await win.webContents.executeJavaScript(`!!document.getElementById('clinic-name')`),'Customer profile form missing');
+
    const result=await win.webContents.executeJavaScript(`window.electron.server.check({name:'Test',url:'https://127.0.0.1',key:'sb_publishable_abcdefgh12345678'})`);assert.equal(result.success,false);
    assert(!fs.existsSync(path.join(dir,'appdata','BalajiOrthoServerSetup','server-connection.json')));
    const shot=await win.webContents.capturePage();fs.mkdirSync(path.join(__dirname,'..','release'),{recursive:true});fs.writeFileSync(path.join(__dirname,'..','release','server-setup-preview.png'),shot.toPNG());

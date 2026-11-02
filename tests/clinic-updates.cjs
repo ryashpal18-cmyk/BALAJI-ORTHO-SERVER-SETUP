@@ -29,12 +29,13 @@ if(mobile) {
     transaction(fn){return (...a)=>{const n='s'+(++this.depth);this.db.exec('SAVEPOINT '+n);try{const v=fn(...a);this.db.exec('RELEASE '+n);return v}catch(e){this.db.exec('ROLLBACK TO '+n);this.db.exec('RELEASE '+n);throw e}finally{--this.depth}}}
   }
   const mod={exports:{}},dir=fs.mkdtempSync(path.join(require('node:os').tmpdir(),'balaji-clinic-'));
-  vm.runInNewContext(fs.readFileSync(path.join(root,'sqlite-store.cjs'),'utf8'),{module:mod,require:n=>n==='better-sqlite3'?Adapter:n==='./logger.cjs'?{logInfo:noop,logError:noop}:require(n)});
+  vm.runInNewContext(fs.readFileSync(path.join(root,'sqlite-store.cjs'),'utf8'),{module:mod,require:n=>n==='better-sqlite3'?Adapter:n==='./logger.cjs'?{logInfo:noop,logError:noop}:n==='./clinic-profile.cjs'?require('../clinic-profile.cjs'):require(n)});
   diskStore=mod.exports;diskStore.init(dir);
   const bridge={};
   for(const name of ['cacheGetAll','cacheGetRow','cacheUpsertRow','cacheMergeServer','queueGetAll','queueRemove','queueUpdate','commitMutation','commitBatch','snapshot','restoreSnapshot'])
     bridge[name]=async(...a)=>{try{return{success:true,data:structuredClone(diskStore[name](...a))}}catch(e){return{success:false,error:e.message}}};
-  globals.window.electron={offline:bridge};
+  diskStore.metaSet('clinic-profile:v1',{...require('../clinic-profile.cjs').emptyProfile,name:'Synthetic Clinic',doctor:'Test Doctor',phone:'80057 07783'});
+  globals.window.electron={offline:bridge,clinicProfile:{get:()=>diskStore.metaGet('clinic-profile:v1'),forBill:id=>require('../clinic-profile.cjs').forBill(diskStore,{id})}};
   close=()=>{diskStore.close();fs.rmSync(dir,{recursive:true,force:true})};
 }
 function load(file) {
@@ -105,7 +106,7 @@ function load(file) {
  config.learnServiceItems([{name:'x ray',amount:250}]);assert.equal(config.getServiceCatalog()[0].rate,300);
  const welcome=load('src/lib/billSmsMessage.ts');
  const billMessage=welcome.buildBillSmsMessage({patientName:'TEST',invoice:'INVOICE-SECRET',date:'2026-10-26',service:'PU Cast:1000',total:1000,discount:100,paid:900,due:0});
- assert.match(billMessage,/नमस्कार TEST जी/);assert.match(billMessage,/हार्दिक स्वागत है/);assert.match(billMessage,/80057 07783/);
+ assert.match(billMessage,/नमस्कार TEST जी/);assert.match(billMessage,/हार्दिक स्वागत है/);assert.match(billMessage,/80057 07783/);assert.match(billMessage,/Synthetic Clinic/);
  assert.match(billMessage,/बिल नं\.: INVOICE-SECRET/);assert.match(billMessage,/दिनांक: 2026-10-26/);assert.match(billMessage,/सेवा: PU Cast/);
  assert.match(billMessage,/कुल बिल: ₹1000/);assert.match(billMessage,/छूट: ₹100/);assert.match(billMessage,/देय राशि: ₹900/);assert.match(billMessage,/जमा: ₹900/);assert.match(billMessage,/बाकी: ₹0/);assert.doesNotMatch(billMessage,/PDF/);
  assert.doesNotMatch(welcome.buildBillWelcomeMessage('TEST',true),/₹|कुल बिल|बिल नं\./);
