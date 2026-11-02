@@ -317,8 +317,8 @@ function initFiles() {
   if (!fs.existsSync(PENDING_FILE))  writeJSON(PENDING_FILE,  []);
   if (!fs.existsSync(FRACTURE_FILE)) writeJSON(FRACTURE_FILE, []);
   if (!fs.existsSync(SETTINGS_FILE)) writeJSON(SETTINGS_FILE, {
-    centerName:  clinicProfiles.current(sqliteStore).name,
-    doctorName:  clinicProfiles.current(sqliteStore).doctor,
+    centerName:  '',
+    doctorName:  '',
     supabaseUrl: authPublicConfig.url,
     supabaseKey: authPublicConfig.key,
     autoSync:    true
