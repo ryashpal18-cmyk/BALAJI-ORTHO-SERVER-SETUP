@@ -1,5 +1,7 @@
 name: Build Server Setup EXE
 on:
+  pull_request:
+    branches: [main]
   push:
     branches: [main]
   workflow_dispatch:
@@ -29,7 +31,7 @@ jobs:
       - name: Real app startup and Server Settings smoke test
         run: npx --no-install electron tests/server-setup-electron.cjs
       - name: Build separate Windows installer
-        run: npx electron-builder --win nsis --publish always
+        run: npx electron-builder --win nsis --publish ${{ github.ref == 'refs/heads/main' && 'always' || 'never' }}
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       - uses: actions/upload-artifact@v4
