@@ -2,8 +2,10 @@ export type ClinicProfile={name:string;doctor:string;qualification:string;regist
 const emptyProfile:ClinicProfile={name:'',doctor:'',qualification:'',registration:'',phone:'',address:'',website:'',upi:'',logo:'',paymentQr:'',invoicePrefix:'INV'};
 const KEY='clinic-profile:v1';
 const bridge=()=>typeof window==='undefined'?undefined:(window as any).electron?.clinicProfile;
+let cachedProfile:ClinicProfile|undefined;
 export function getClinicProfile():ClinicProfile {
- try{return {...emptyProfile,...(bridge()?.get()||JSON.parse(localStorage.getItem(KEY)||'null')||{})};}catch{return {...emptyProfile};}
+ if(cachedProfile)return {...cachedProfile};
+ try{cachedProfile={...emptyProfile,...(bridge()?.get()||JSON.parse(localStorage.getItem(KEY)||'null')||{})};return {...cachedProfile};}catch{return {...emptyProfile};}
 }
 export function getBillClinicProfile(billId:unknown):ClinicProfile {
  const api=bridge(); if(api) return {...emptyProfile,...(api.forBill(String(billId||''))||getClinicProfile())};
@@ -13,7 +15,7 @@ export async function saveClinicProfile(p:ClinicProfile):Promise<void>{
  const api=bridge(); if(!api)throw Error('Clinic profile सेव करने के लिए desktop EXE खोलें।');
  const result=await api.save(p);if(!result?.success)throw Error(result?.error||'Clinic profile सेव नहीं हुई।');
 }
-export const clinicLogo=()=>getClinicProfile().logo||'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVQIHWP4z8DwHwAFgAI/ScLbtAAAAABJRU5ErkJggg==';
+export const clinicLogo=(profile:ClinicProfile=getClinicProfile())=>profile.logo||'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVQIHWP4z8DwHwAFgAI/ScLbtAAAAABJRU5ErkJggg==';
 const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 export function brandText(value: unknown,html=false,profile: ClinicProfile=getClinicProfile()){
  const p={...emptyProfile,...profile};
