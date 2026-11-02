@@ -136,7 +136,7 @@ ${brandText("Balaji Ortho Care Center",false)}`;
 
 function buildInvoiceHTML(bill: any, logoUrl: string = "/images/logo.png") {
   const issuer=getBillClinicProfile(bill.id);
-  logoUrl=issuer.logo||clinicLogo();
+  logoUrl=clinicLogo(issuer);
   const paymentBlock=issuer.paymentQr?`<div style="text-align:center;margin:8px 0"><img alt="Payment on QR" src="${escapeHtml(issuer.paymentQr)}" width="160" height="160"><div>Payment on QR · ${escapeHtml(issuer.upi)}</div></div>`:'';
   const patientName = escapeHtml((bill.patients as any)?.name || "Patient");
   const patientAge = (bill.patients as any)?.age || "—";
