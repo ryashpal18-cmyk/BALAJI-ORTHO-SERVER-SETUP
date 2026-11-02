@@ -1,3 +1,4 @@
+import {getClinicProfile} from './lib/clinicProfile';
 import { createRoot } from "react-dom/client";
 import App from "./App.tsx";
 import "./index.css";
@@ -6,6 +7,7 @@ import { startAutoBackupScheduler } from "./lib/backup";
 import { initErrorLogging } from "./lib/errorLogging";
 import { migrateLegacyIndexedDbIfNeeded } from "./lib/offlineDb";
 
+document.title=getClinicProfile().name || 'Clinic Server Setup';
 initErrorLogging();
 // ✅ Purani IndexedDB (agar kisi PC pe abhi bhi pada hai) ko SQLite mein
 // ek baar migrate karke permanently hata do — startAutoSync se pehle,
