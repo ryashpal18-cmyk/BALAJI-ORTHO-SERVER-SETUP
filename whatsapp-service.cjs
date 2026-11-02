@@ -1,3 +1,4 @@
+const clinicProfiles=require('./clinic-profile.cjs');
 'use strict';
 const fs=require('fs'),path=require('path'),crypto=require('crypto');
 const {normId,familyNumber,familyLink}=require('./family-profile.cjs');
@@ -15,6 +16,7 @@ function findBrowser() {
   return paths.find(file=>fs.existsSync(file));
 }
 function createWhatsAppService({store,root,allowed,renderPdf,clientFactory,mediaFactory,now=Date.now,timeoutMs=60000,browserPath=findBrowser,logger}) {
+  const brandText=(v,html=false)=>clinicProfiles.brandText(v,html,clinicProfiles.current(store));
   const jobsKey='whatsapp:invoice-jobs',settingsKey='whatsapp:settings';
   const report=createMessagingLog(logger,'whatsapp',now);
   let client=null,ready=false,qr=null,state='disconnected',error='',busy=false,stopped=false,nextConnect=0;
@@ -62,7 +64,7 @@ function createWhatsAppService({store,root,allowed,renderPdf,clientFactory,media
   async function createStatementPdf(id,expectedFingerprint){
     assertAllowed();const data=statementData(id);
     if(expectedFingerprint&&expectedFingerprint!==data.fingerprint)throw Error('STATEMENT-004: हिसाब बदल गया है; फिर preview करें।');
-    const bytes=await renderPdf(statementDocument(data.statement));assertAllowed();
+    const bytes=await renderPdf(statementDocument(data.statement,clinicProfiles.current(store)));assertAllowed();
     if(statementData(id).fingerprint!==data.fingerprint)throw Error('STATEMENT-004: PDF बनते समय हिसाब बदला; फिर preview करें।');
     if(!bytes||Buffer.from(bytes).subarray(0,5).toString()!=='%PDF-')throw Error('STATEMENT-006: PDF नहीं बनी।');
     const dir=path.join(root,'statement-pdfs');fs.mkdirSync(dir,{recursive:true});
@@ -108,7 +110,7 @@ function createWhatsAppService({store,root,allowed,renderPdf,clientFactory,media
   async function createMonthlyPdf(month,expectedFingerprint){
     assertAllowed();const data=monthlyData(month);
     if(expectedFingerprint&&data.fingerprint!==expectedFingerprint)throw Error('MONTHLY-004: हिसाब बदला; फिर preview करें।');
-    const bytes=await renderPdf(monthly.monthlyDocument(data.report));assertAllowed();
+    const bytes=await renderPdf(monthly.monthlyDocument(data.report,clinicProfiles.current(store)));assertAllowed();
     if(monthlyData(month).fingerprint!==data.fingerprint)throw Error('MONTHLY-004: PDF बनते समय हिसाब बदला; फिर कोशिश करें।');
     if(!bytes||Buffer.from(bytes).subarray(0,5).toString()!=='%PDF-')throw Error('MONTHLY-006: PDF नहीं बनी।');
     const dir=path.join(root,'monthly-pdfs');fs.mkdirSync(dir,{recursive:true});const file=path.join(dir,month+'-'+data.fingerprint.slice(0,24)+'.pdf');
@@ -120,7 +122,7 @@ function createWhatsAppService({store,root,allowed,renderPdf,clientFactory,media
   async function createPdf(id){
     assertAllowed();const {bill,patient,fingerprint}=billData(id);
     const qrImage=await require('qrcode').toDataURL(familyLink(patient.id),{width:256,margin:4,errorCorrectionLevel:'M'});
-    const bytes=await renderPdf(invoiceDocument(bill,patient,qrImage));
+    const bytes=await renderPdf(invoiceDocument(bill,patient,qrImage,clinicProfiles.forBill(store,bill)));
     assertAllowed();
     if(!bytes||Buffer.from(bytes).subarray(0,5).toString()!=='%PDF-')throw Error('PDF नहीं बनी');
     const dir=path.join(root,'invoice-pdfs');fs.mkdirSync(dir,{recursive:true});
@@ -177,13 +179,9 @@ function createWhatsAppService({store,root,allowed,renderPdf,clientFactory,media
         patch(job.id,{state:'sending',pdfPath,mobile:familyNumber(fresh.patient.mobile),patientName:fresh.patient.name,fingerprint:fresh.fingerprint,attempts:(job.attempts||0)+1,error:''});
         failureStage='WhatsApp को PDF भेजना';
         handedOff=true;
-        const sent=await bounded(activeClient.sendMessage(chatId,media,{sendSeen:false,sendMediaAsDocument:true,caption:job.kind==='monthly'||job.kind==='statement'?`नमस्ते ${fresh.patient.name} जी, Balaji Digital X-Ray & Ortho Care Center का आपका ${job.kind==='monthly'?'मासिक हिसाब '+job.month:'पूरा account statement'} PDF संलग्न है।`:[
-          `नमस्कार ${String(fresh.patient.name||'मरीज').replace(/[\r\n]+/g,' ').trim()||'मरीज'} जी,`,
-          'BALAJI DIGITAL X-RAY & ORTHO CARE CENTER में आपका हार्दिक स्वागत है।',
-          '', 'अपनी सेहत की देखभाल के लिए हम पर भरोसा करने का धन्यवाद। आपके बिल का विवरण साथ दी गई PDF में है।',
-          '', 'हम आपके शीघ्र स्वस्थ होने की कामना करते हैं।',
-          '', 'डॉ. एस. एस. राठौड़', 'संपर्क: 80057 07783',
-        ].join('\n'),waitUntilMsgSent:true}),timeoutMs);
+        const sent=await bounded(activeClient.sendMessage(chatId,media,{sendSeen:false,sendMediaAsDocument:true,caption:job.kind==='monthly'||job.kind==='statement'
+          ? `नमस्ते ${fresh.patient.name} जी, ${clinicProfiles.current(store).name} का आपका ${job.kind==='monthly'?'मासिक हिसाब / monthly account':'पूरा account statement'} PDF संलग्न है।`
+          : `नमस्कार ${fresh.patient.name} जी,\n${clinicProfiles.forBill(store,fresh.bill).name} में आपका स्वागत है।\nआपके बिल का विवरण साथ दी गई PDF में है।\n${clinicProfiles.forBill(store,fresh.bill).doctor}\n${clinicProfiles.forBill(store,fresh.bill).phone}`,waitUntilMsgSent:true}),timeoutMs);
         const messageId=serializedId(sent?.id);
         if(!messageId)throw Error('WhatsApp acknowledgment नहीं मिला');
         patch(job.id,{state:'sent',messageId,sentAt:new Date(now()).toISOString(),error:'',errorDetail:'',failureStage:''});

@@ -81,6 +81,24 @@ originalOn('server:publicConfig', (event) => {
   if (!mainWindow || event.sender !== mainWindow.webContents) return;
   event.returnValue = authPublicConfig;
 });
+const clinicProfiles = require('./clinic-profile.cjs');
+originalOn('clinic-profile:get', (event) => {
+ if (!mainWindow || event.sender !== mainWindow.webContents) return;
+ event.returnValue = clinicProfiles.current(sqliteStore);
+});
+originalOn('clinic-profile:bill', (event, billId) => {
+ event.returnValue = null;
+ if (!mainWindow || event.sender !== mainWindow.webContents || !access.getPrincipal()) return;
+ const bill=sqliteStore.cacheGetRow('billing',String(billId));
+ if(bill && access.rowAllowed('billing',bill,sqliteStore))event.returnValue=clinicProfiles.forBill(sqliteStore,bill);
+});
+ipcMain.handle('clinic-profile:save', (_event,input) => {
+ if(access.getPrincipal()?.role!=='admin')throw Error('Administrator login required');
+ try {
+  const profile=sqliteStore.saveClinicProfile(input);
+  mainWindow.setTitle(profile.name);return {success:true,profile};
+ }catch(error){return {success:false,error:error.message};}
+});
 const setupService = serverSetup.createService({
   configFile: SERVER_CONFIG_FILE, current: authPublicConfig,
   fetchCloud: (...args) => net.fetch(...args),
@@ -299,8 +317,8 @@ function initFiles() {
   if (!fs.existsSync(PENDING_FILE))  writeJSON(PENDING_FILE,  []);
   if (!fs.existsSync(FRACTURE_FILE)) writeJSON(FRACTURE_FILE, []);
   if (!fs.existsSync(SETTINGS_FILE)) writeJSON(SETTINGS_FILE, {
-    centerName:  'Balaji Ortho Care Center',
-    doctorName:  'Dr. S. S. Rathore',
+    centerName:  clinicProfiles.current(sqliteStore).name,
+    doctorName:  clinicProfiles.current(sqliteStore).doctor,
     supabaseUrl: authPublicConfig.url,
     supabaseKey: authPublicConfig.key,
     autoSync:    true
@@ -606,7 +624,7 @@ function createWindow() {
     height: 900,
     minWidth: 1100,
     minHeight: 700,
-    title: 'Balaji Ortho Server Setup',
+    title: clinicProfiles.current(sqliteStore).name || 'Clinic Server Setup',
     icon: path.join(__dirname, 'public', 'favicon.ico'),
     webPreferences: {
       preload:          path.join(__dirname, 'preload.js'),

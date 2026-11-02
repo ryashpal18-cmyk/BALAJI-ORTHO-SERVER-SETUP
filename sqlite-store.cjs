@@ -392,6 +392,11 @@ function commitMutation(mutation, row, idField = 'id') {
           metaSet('outreach:receipt-origin:' + String(saved.id).replace(/^local_/, '') + ':' + receipt.id, true);
       }
     }
+    if (mutation.table === 'billing' && mutation.op === 'insert') {
+      const profiles=require('./clinic-profile.cjs');
+      const profile=profiles.normalize(profiles.current(module.exports));
+      profiles.captureBill(module.exports,saved,profile);
+    }
     if (mutation.table === 'patients' && mutation.op === 'insert') {
       saved = registration.allocate(module.exports, saved);
       mutation = { ...mutation, payload: { ...mutation.payload, registration_number: saved.registration_number } };
@@ -406,6 +411,9 @@ function commitMutation(mutation, row, idField = 'id') {
     queueAdd(mutation);
     return saved;
   })();
+}
+function saveClinicProfile(input) {
+ return getDb().transaction(()=>require('./clinic-profile.cjs').save(module.exports,input))();
 }
 function snapshot() {
   return getDb().transaction(() => {
@@ -512,6 +520,6 @@ module.exports = {
   init, close,
   cacheGetAll, cacheGetRow, cacheSetRows, cacheReplaceTable, cacheUpsertRow, cacheDeleteRow, cacheReplaceRowKey,
   queueAdd, queueGetAll, queueRemove, queueUpdate,
-  metaGet, metaSet,
+  metaGet, metaSet, saveClinicProfile,
   importLegacyDump, isLegacyMigrated,
 };

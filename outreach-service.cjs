@@ -1,8 +1,11 @@
+const clinicProfiles=require('./clinic-profile.cjs');
 'use strict';
 const {createMessagingLog}=require('./messaging-log.cjs');
 const {randomUUID,createHash}=require('crypto'),{familyNumber,normId}=require('./family-profile.cjs');
-const clinic='Balaji Digital X-Ray & Ortho Care Center';
+
 function createOutreachService({store,allowed,whatsapp,sendSMS,now=Date.now,intervalMs=30000,logger}){
+  const brandText=(v,html=false)=>clinicProfiles.brandText(v,html,clinicProfiles.current(store));
+  const clinic=clinicProfiles.current(store).name;
  const report=createMessagingLog(logger,'outreach-service',now);
  const key='outreach:v1';let busy=false,nextSend=0,gateway=null;
  const initial=()=>({settings:{channels:['whatsapp','sms'],enabled:true},seen:[],campaigns:[]});

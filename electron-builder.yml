@@ -15,6 +15,7 @@ publish:
 
 files:
   - dist/**
+  - clinic-profile.cjs
   - main.js
   - pc-messaging.cjs
   - whatsapp-service.cjs
