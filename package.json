@@ -1,6 +1,6 @@
 {
   "name": "balaji-ortho-server-setup",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "private": true,
   "main": "main.js",
   "scripts": {
@@ -73,6 +73,9 @@
     "zod": "^3.23.8"
   },
   "devDependencies": {
+    "@capacitor/android": "7.4.3",
+    "@capacitor/cli": "7.4.3",
+    "@capacitor/core": "7.4.3",
     "@types/node": "^22.7.4",
     "@types/qrcode": "1.5.5",
     "@types/react": "^18.3.3",

@@ -607,7 +607,7 @@ function createWindow() {
     minWidth: 1100,
     minHeight: 700,
     title: 'BJ OPD',
-    icon: path.join(__dirname, 'public', 'favicon.ico'),
+    icon: path.join(__dirname, 'dist', 'bj-opd-icon.png'),
     webPreferences: {
       preload:          path.join(__dirname, 'preload.js'),
       contextIsolation: true,
@@ -665,7 +665,7 @@ function openWhatsAppWindow(url) {
     minWidth: 900,
     minHeight: 600,
     title: 'WhatsApp Web — Balaji Ortho Care',
-    icon: path.join(__dirname, 'public', 'favicon.ico'),
+    icon: path.join(__dirname, 'dist', 'bj-opd-icon.png'),
     webPreferences: {
       nodeIntegration:  false,
       contextIsolation: true,

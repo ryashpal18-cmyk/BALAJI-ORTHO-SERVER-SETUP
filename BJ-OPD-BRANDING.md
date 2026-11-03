@@ -1,27 +1,22 @@
-# BJ OPD branding — deployment checklist
+# BJ OPD Windows and Android releases
 
-The login page code, Windows display name, desktop shortcut name, installer filename,
-and browser title have been updated to BJ OPD.
+The Server Setup repository builds both installers from the same version and commit.
+The shared files in `public/` provide the launcher icon and login poster. The Windows
+form sits over the open right side of the poster on wide screens. On smaller screens
+the form follows the poster.
 
-## Required image uploads (still pending)
-- Copy the approved Full-HD image from `BJ_OPD_Branding_Ready.zip` to `public/bj-opd-background.png` (1920x1080).
-- Copy the square desktop icon from the same ZIP to `build/icon.png` (512x512).
+Windows can provision a clinic server. To connect Android, open BJ OPD and enter
+the prepared clinic's Supabase project URL and publishable or anon API key.
+Then sign in with the clinic's cloud account. Android uses cloud authentication.
 
-**Important:** `src/pages/Login.tsx` reserves the right-side area for the application's real
-login form. Do NOT include a fake login panel inside the background image.
-The old background image is a fallback until the new image file exists.
-The existing icon is retained until replaced.
+The build workflow publishes both files under one release after both builds pass.
+Bump the version in package.json and package-lock.json for each new release.
+Configure the following repository Actions secrets for a production-signed APK.
+Keep the same Android key for updates.
 
-## Branding
-Product: BJ OPD
-Company: BJ TECH SOFTWARE DEVELOPER
-Founder & Developer: Dr. Yash Rathore
-Contact: +91 8005707783
+- ANDROID_KEYSTORE_BASE64
+- ANDROID_KEYSTORE_PASSWORD
+- ANDROID_KEY_ALIAS
+- ANDROID_KEY_PASSWORD
 
-## Compatibility
-The Electron appId, internal storage keys, database, cloud login identifier,
-and protocol scheme were intentionally NOT changed to avoid breaking existing installations.
-
-Verify `npm run build` and Windows packaging before releasing, and visually test
-the login screen at 1920x1080 and smaller screen sizes.
-
+Without signing secrets, the Android artifact is an installable, debug-signed Preview.

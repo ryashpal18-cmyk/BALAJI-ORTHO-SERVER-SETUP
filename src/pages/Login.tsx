@@ -6,7 +6,9 @@ import { useState, useEffect } from "react";
 import { Eye, EyeOff, User, Lock, Phone, LogIn } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useToast } from "@/hooks/use-toast";
-import { supabase } from "@/integrations/supabase/client";
+import { serverConnection, supabase } from "@/integrations/supabase/client";
+import { MobileServerSetup } from "@/components/MobileServerSetup";
+import "./login.css";
 
 
 
@@ -109,36 +111,16 @@ export default function Login() {
     }
   };
   return (
-    <div style={{
-      minHeight: "100vh", width: "100%",
-      display: "flex", flexDirection: "column",
-      position: "relative", fontFamily: "'Segoe UI', sans-serif",
-      overflow: "auto",
-    }}>
-
-      {/* Approved 1920x1080 BJ OPD banner. The right ~35% is kept clear for the REAL login card.
-          Until public/bj-opd-background.png is uploaded, the original background remains as fallback. */}
-      <div aria-hidden="true" style={{
-        position: "absolute", inset: 0, zIndex: 0,
-        backgroundImage: 'url("/bj-opd-background.png"), url("/bj-opd-background.svg")',
-        backgroundColor: "#0865ab",
-        backgroundSize: "100% 100%", backgroundPosition: "center center",
-        backgroundRepeat: "no-repeat",
-      }} />
-      <div style={{
-        position: "relative", zIndex: 2, flex: 1, display: "flex",
-        alignItems: "center", justifyContent: "flex-end",
-        minHeight: "100vh", paddingBottom: "6vh", boxSizing: "border-box",
-      }}>
-        {/* RIGHT: Colourful Login Card */}
-        <div style={{
-          width: "clamp(315px, 29vw, 430px)",
-          marginRight: "2.2vw", flexShrink: 0,
-          maxHeight: "min(82vh, 750px)", overflowY: "auto",
-          borderRadius: "22px",
-          boxShadow: "0 28px 80px rgba(0,0,0,0.40), 0 0 0 1px rgba(255,255,255,0.14)",
-        }}>
-
+    <main className="bj-login">
+      <div className="bj-login-layout">
+        <img
+          className="bj-login-poster"
+          src="./bj-opd-background.webp"
+          width={1672}
+          height={941}
+          alt="BJ OPD Clinic Management Software — OPD, Digital X-Ray, Ortho Care, Billing, SMS and WhatsApp"
+        />
+        <div className="bj-login-card">
           {/* Card Header */}
           <div style={{
             background: "linear-gradient(135deg, #0d2351 0%, #1e57b0 52%, #0e7c4a 100%)",
@@ -165,12 +147,7 @@ export default function Login() {
               marginBottom: "12px",
               boxShadow: "0 4px 16px rgba(0,0,0,0.20)",
             }}>
-              <svg width="32" height="32" viewBox="0 0 24 24" fill="none"
-                stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M4.8 2.3A.3.3 0 1 0 5 2H4a2 2 0 0 0-2 2v5a6 6 0 0 0 6 6 6 6 0 0 0 6-6V4a2 2 0 0 0-2-2h-1a.2.2 0 1 0 .3.3"/>
-                <path d="M8 15v1a6 6 0 0 0 6 6v0a6 6 0 0 0 6-6v-4"/>
-                <circle cx="20" cy="10" r="2"/>
-              </svg>
+              <img src="./bj-opd-icon.png" width={56} height={56} alt="" />
             </div>
             <h2 style={{
               fontSize: "21px", fontWeight: 800, color: "#ffffff",
@@ -196,7 +173,8 @@ export default function Login() {
             </div>}
             {setupError && <p role="alert" style={{ color: "#b91c1c" }}>{setupError}</p>}
 
-            <form onSubmit={handleLogin} style={{ display: "flex", flexDirection: "column", gap: "14px" }}>
+            {!desktop && !serverConnection.url && <MobileServerSetup />}
+            {(desktop || serverConnection.url) && <form onSubmit={handleLogin} style={{ display: "flex", flexDirection: "column", gap: "14px" }}>
               {/* Username */}
               <div style={{ display: "flex", flexDirection: "column", gap: "5px" }}>
                 <label style={{ fontSize: "12px", fontWeight: 600, color: "#2a3a5a" }}>Email / Staff username</label>
@@ -299,7 +277,7 @@ export default function Login() {
                   </>
                 )}
               </button>
-            </form>
+            </form>}
 
             <div style={{
               marginTop: "18px", display: "flex", alignItems: "center",
@@ -314,6 +292,6 @@ export default function Login() {
 
       <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
 
-    </div>
+    </main>
   );
 }

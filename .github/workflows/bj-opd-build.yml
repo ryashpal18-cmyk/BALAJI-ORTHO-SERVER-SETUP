@@ -1,23 +1,21 @@
-name: Build BJ OPD Windows EXE
+name: Build and release BJ OPD
 on:
   workflow_dispatch:
   push:
     branches: [main]
-    paths:
-      - 'src/**'
-      - 'public/**'
-      - 'build/**'
-      - 'index.html'
-      - 'main.js'
-      - 'scripts/Make-BJOPDIcon.ps1'
-      - 'electron-builder.yml'
-      - 'package.json'
-      - 'package-lock.json'
-      - '.github/workflows/bj-opd-build.yml'
+
 permissions:
   contents: read
+
+concurrency:
+  group: bj-opd-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  PUPPETEER_SKIP_DOWNLOAD: 'true'
+
 jobs:
-  build:
+  windows:
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
@@ -28,13 +26,88 @@ jobs:
       - run: npm ci
       - run: npm run typecheck
       - run: npm run build
-      - name: Generate BJ OPD Windows icon
-        shell: pwsh
-        run: ./scripts/Make-BJOPDIcon.ps1
-      - name: Package BJ OPD EXE from CURRENT repository
-        run: npx electron-builder --win nsis --publish never
+      - run: npx --no-install electron-builder --win nsis --publish never
       - uses: actions/upload-artifact@v4
         with:
-          name: BJ-OPD-Windows-EXE
-          path: release/*.exe
+          name: BJ-OPD-Windows
+          path: release/BJ-OPD-Setup-*.exe
           if-no-files-found: error
+
+  android:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+      - run: npm ci --ignore-scripts
+      - run: npm run build
+      - run: npx --no-install cap add android
+      - run: node scripts/brand-android.cjs
+      - name: Build and verify APK
+        env:
+          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: |
+          set -euo pipefail
+          version=$(node -p "require('./package.json').version")
+          signer="$(find "$ANDROID_HOME/build-tools" -name apksigner | sort -V | tail -1)"
+          mkdir -p release
+          if [[ -n "$ANDROID_KEYSTORE_BASE64" ]]; then
+            : "${ANDROID_KEYSTORE_PASSWORD:?}" "${ANDROID_KEY_ALIAS:?}" "${ANDROID_KEY_PASSWORD:?}"
+            keyfile=$(mktemp)
+            trap 'rm -f "$keyfile"' EXIT
+            printf '%s' "$ANDROID_KEYSTORE_BASE64" | base64 -d > "$keyfile"
+            (cd android && bash gradlew assembleRelease)
+            apk="release/BJ-OPD-Android-$version.apk"
+            "$signer" sign --ks "$keyfile" --ks-key-alias "$ANDROID_KEY_ALIAS" \
+              --ks-pass env:ANDROID_KEYSTORE_PASSWORD --key-pass env:ANDROID_KEY_PASSWORD \
+              --out "$apk" android/app/build/outputs/apk/release/app-release-unsigned.apk
+          else
+            echo '::warning::Android signing secret is absent. Building an installable preview APK.'
+            (cd android && bash gradlew assembleDebug)
+            apk="release/BJ-OPD-Android-Preview-$version.apk"
+            cp android/app/build/outputs/apk/debug/app-debug.apk "$apk"
+          fi
+          "$signer" verify "$apk"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: BJ-OPD-Android
+          path: release/*.apk
+          if-no-files-found: error
+
+  release:
+    if: github.ref == 'refs/heads/main'
+    needs: [windows, android]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: BJ-OPD-*
+          path: release
+          merge-multiple: true
+      - name: Publish both installers to one GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          tag="v$(node -p "require('./package.json').version")"
+          if gh release view "$tag" > /dev/null 2>&1; then
+            echo "Release $tag already exists. Bump the package version to publish another build."
+            exit 0
+          fi
+          notes="Windows installer and Android APK built from the same Server Setup commit."
+          if compgen -G 'release/*Preview*.apk' > /dev/null; then
+            notes="$notes Android Preview uses a debug signing key. Future production APKs may require a fresh installation."
+          fi
+          gh release create "$tag" release/*.exe release/*.apk --target "$GITHUB_SHA" --title "BJ OPD $tag" --notes "$notes"

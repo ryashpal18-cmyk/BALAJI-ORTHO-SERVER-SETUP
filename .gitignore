@@ -5,3 +5,5 @@ release/
 !*.example
 auth-public-config.json
 *.log
+
+/android/

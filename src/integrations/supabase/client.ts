@@ -1,8 +1,9 @@
 import { boundedFetch } from "@/lib/boundedFetch";
 import { createClient } from '@supabase/supabase-js';
 import type { Database } from './types';
+import { readMobileServerConnection } from '@/lib/mobileServerConnection';
 
-export const serverConnection = (window as any).electron?.server?.publicConfig() || { url: '', key: '', name: '' };
+export const serverConnection = (window as any).electron?.server?.publicConfig() || readMobileServerConnection() || { url: '', key: '', name: '' };
 const url = serverConnection.url || 'https://unconfigured.invalid';
 const key = serverConnection.key || 'sb_publishable_unconfigured';
 const authenticatedClient = createClient<Database>(url, key, {

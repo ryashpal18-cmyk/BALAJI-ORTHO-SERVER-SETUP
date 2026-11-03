@@ -40,7 +40,7 @@ files:
   - package.json
 
 win:
-  icon: build/icon.png
+  icon: public/bj-opd-icon.png
   target:
     - target: nsis
       arch: [x64]
