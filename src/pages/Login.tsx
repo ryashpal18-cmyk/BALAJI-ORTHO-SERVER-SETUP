@@ -3,18 +3,18 @@ import { migrateLegacyIndexedDbIfNeeded } from "@/lib/offlineDb";
 import { startAutoSync } from "@/lib/offlineSync";
 import { startAutoBackupScheduler } from "@/lib/backup";
 import { useState, useEffect } from "react";
-import { Eye, EyeOff, User, Lock, Shield, Phone, LogIn } from "lucide-react";
+import { Eye, EyeOff, User, Lock, Phone, LogIn } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
-import logoImg from "@/assets/logo.png";
+
 import bg1 from "@/assets/dash-bg1.png";
-import bg2 from "@/assets/dash-bg2.png";
-import bg3 from "@/assets/dash-bg3.png";
+
+
 import { STORAGE_KEYS } from "@/lib/appConfig";
 import { displaySession, resetCloudConnection } from "@/lib/localSession";
 
-const BG_IMAGES = [bg1, bg2, bg3];
+
 
 
 export default function Login() {
@@ -22,22 +22,8 @@ export default function Login() {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading]   = useState(false);
-  const [bgIdx, setBgIdx]   = useState(0);
-  const [bgFade, setBgFade] = useState(true);
   const navigate  = useNavigate();
   const { toast } = useToast();
-
-  // Slideshow — every 5 seconds
-  useEffect(() => {
-    const timer = setInterval(() => {
-      setBgFade(false);
-      setTimeout(() => {
-        setBgIdx(i => (i + 1) % BG_IMAGES.length);
-        setBgFade(true);
-      }, 400);
-    }, 5000);
-    return () => clearInterval(timer);
-  }, []);
 
   const desktop = !!(window as any).electron?.offlineStatus;
   const [mode, setMode] = useState<"local" | "cloud">(desktop ? "local" : "cloud");
@@ -128,94 +114,28 @@ export default function Login() {
       minHeight: "100vh", width: "100%",
       display: "flex", flexDirection: "column",
       position: "relative", fontFamily: "'Segoe UI', sans-serif",
-      overflow: "hidden",
+      overflow: "auto",
     }}>
 
-      {/* ── Slideshow Background ── */}
-      {BG_IMAGES.map((src, i) => (
-        <div key={i} style={{
-          position: "absolute", inset: 0,
-          backgroundImage: `url(${src})`,
-          backgroundSize: "cover", backgroundPosition: "center",
-          backgroundRepeat: "no-repeat",
-          zIndex: 0,
-          opacity: i === bgIdx ? (bgFade ? 1 : 0) : 0,
-          transition: "opacity 0.6s ease-in-out",
-        }} />
-      ))}
-
-      {/* Light overlay so text stays readable */}
-      <div style={{
-        position: "absolute", inset: 0,
-        background: "rgba(10, 30, 70, 0.30)",
-        zIndex: 1,
+      {/* Approved 1920x1080 BJ OPD banner. The right ~35% is kept clear for the REAL login card.
+          Until public/bj-opd-background.png is uploaded, the original background remains as fallback. */}
+      <div aria-hidden="true" style={{
+        position: "absolute", inset: 0, zIndex: 0,
+        backgroundImage: `url("/bj-opd-background.png"), url(${bg1})`,
+        backgroundColor: "#0865ab",
+        backgroundSize: "100% 100%", backgroundPosition: "center center",
+        backgroundRepeat: "no-repeat",
       }} />
-
-      {/* ── Main layout ── */}
       <div style={{
-        position: "relative", zIndex: 2, flex: 1,
-        display: "flex", alignItems: "center",
-        minHeight: "calc(100vh - 48px)",
+        position: "relative", zIndex: 2, flex: 1, display: "flex",
+        alignItems: "center", justifyContent: "flex-end",
+        minHeight: "100vh", paddingBottom: "6vh", boxSizing: "border-box",
       }}>
-
-        {/* LEFT: Logo only */}
-        <div style={{
-          flex: 1, display: "flex", flexDirection: "column",
-          alignItems: "center", justifyContent: "center",
-          padding: "40px 20px 40px 40px",
-        }}>
-          <img
-            src={logoImg}
-            alt="Balaji Ortho Care Logo"
-            style={{
-              width: "min(420px, 38vw)", height: "auto",
-              filter: "drop-shadow(0 8px 36px rgba(0,0,0,0.45))",
-              userSelect: "none",
-            }}
-          />
-          <p style={{
-            marginTop: "16px",
-            fontSize: "clamp(13px,1.2vw,17px)",
-            color: "rgba(255,255,255,0.90)",
-            fontWeight: 500, letterSpacing: "0.5px",
-            textShadow: "0 2px 10px rgba(0,0,0,0.55)",
-            textAlign: "center",
-          }}>
-            Khinwara, Rajasthan — 306502
-          </p>
-          <p style={{
-            fontSize: "clamp(11px,1vw,14px)",
-            color: "rgba(255,255,255,0.65)",
-            marginTop: "4px",
-            textShadow: "0 2px 8px rgba(0,0,0,0.4)",
-            textAlign: "center",
-          }}>
-            Dr. S. S. Rathore (DMRT | BPT)
-          </p>
-
-          {/* Slideshow dots */}
-          <div style={{ display: "flex", gap: "8px", marginTop: "28px" }}>
-            {BG_IMAGES.map((_, i) => (
-              <button
-                key={i}
-                onClick={() => { setBgFade(false); setTimeout(() => { setBgIdx(i); setBgFade(true); }, 200); }}
-                style={{
-                  width: i === bgIdx ? "22px" : "8px",
-                  height: "8px",
-                  borderRadius: "4px",
-                  background: i === bgIdx ? "rgba(255,255,255,0.95)" : "rgba(255,255,255,0.40)",
-                  border: "none", cursor: "pointer", padding: 0,
-                  transition: "all 0.35s ease",
-                }}
-              />
-            ))}
-          </div>
-        </div>
-
         {/* RIGHT: Colourful Login Card */}
         <div style={{
-          width: "clamp(360px, 30vw, 440px)",
-          marginRight: "5vw", flexShrink: 0,
+          width: "clamp(315px, 29vw, 430px)",
+          marginRight: "2.2vw", flexShrink: 0,
+          maxHeight: "min(82vh, 750px)", overflowY: "auto",
           borderRadius: "22px",
           overflow: "hidden",
           boxShadow: "0 28px 80px rgba(0,0,0,0.40), 0 0 0 1px rgba(255,255,255,0.14)",
@@ -259,10 +179,10 @@ export default function Login() {
               marginBottom: "2px", textAlign: "center",
               textShadow: "0 2px 8px rgba(0,0,0,0.25)",
             }}>
-              Balaji Ortho Care
+              BJ OPD
             </h2>
             <p style={{ fontSize: "12px", color: "rgba(255,255,255,0.80)", textAlign: "center" }}>
-              Dr. S. S. Rathore (DMRT | BPT) · Khinwara
+              Clinic Management Software
             </p>
           </div>
 
@@ -396,19 +316,6 @@ export default function Login() {
 
       <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
 
-      {/* Footer */}
-      <div style={{
-        position: "relative", zIndex: 2, height: "48px",
-        background: "linear-gradient(90deg, #0d2351 0%, #1a5c2a 100%)",
-        display: "flex", alignItems: "center", justifyContent: "space-between",
-        padding: "0 28px", color: "white", fontSize: "11px",
-      }}>
-        <div style={{ display: "flex", alignItems: "center", gap: "7px" }}>
-          <Shield style={{ width: "13px", height: "13px" }} />
-          <span>Your Health, Our Priority</span>
-        </div>
-        <span>© 2024 Balaji Ortho Care Center. All Rights Reserved.</span>
-      </div>
     </div>
   );
 }
