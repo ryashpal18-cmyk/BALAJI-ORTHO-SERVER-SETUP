@@ -8,6 +8,7 @@ on:
       - 'public/**'
       - 'build/**'
       - 'index.html'
+      - 'main.js'
       - 'scripts/Make-BJOPDIcon.ps1'
       - 'electron-builder.yml'
       - 'package.json'
