@@ -8,7 +8,6 @@ import { useNavigate } from "react-router-dom";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 
-import bg1 from "@/assets/dash-bg1.png";
 
 
 import { STORAGE_KEYS } from "@/lib/appConfig";
@@ -121,7 +120,7 @@ export default function Login() {
           Until public/bj-opd-background.png is uploaded, the original background remains as fallback. */}
       <div aria-hidden="true" style={{
         position: "absolute", inset: 0, zIndex: 0,
-        backgroundImage: `url("/bj-opd-background.png"), url(${bg1})`,
+        backgroundImage: 'url("/bj-opd-background.png"), url("/bj-opd-background.svg")',
         backgroundColor: "#0865ab",
         backgroundSize: "100% 100%", backgroundPosition: "center center",
         backgroundRepeat: "no-repeat",
