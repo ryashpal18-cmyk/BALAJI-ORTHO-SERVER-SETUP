@@ -137,7 +137,6 @@ export default function Login() {
           marginRight: "2.2vw", flexShrink: 0,
           maxHeight: "min(82vh, 750px)", overflowY: "auto",
           borderRadius: "22px",
-          overflow: "hidden",
           boxShadow: "0 28px 80px rgba(0,0,0,0.40), 0 0 0 1px rgba(255,255,255,0.14)",
         }}>
 
