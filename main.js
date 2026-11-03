@@ -606,7 +606,7 @@ function createWindow() {
     height: 900,
     minWidth: 1100,
     minHeight: 700,
-    title: 'Balaji Ortho Server Setup',
+    title: 'BJ OPD',
     icon: path.join(__dirname, 'public', 'favicon.ico'),
     webPreferences: {
       preload:          path.join(__dirname, 'preload.js'),
