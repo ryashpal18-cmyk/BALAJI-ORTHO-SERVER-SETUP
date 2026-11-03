@@ -8,6 +8,7 @@ on:
       - 'public/**'
       - 'build/**'
       - 'index.html'
+      - 'scripts/Make-BJOPDIcon.ps1'
       - 'electron-builder.yml'
       - 'package.json'
       - 'package-lock.json'
@@ -26,6 +27,9 @@ jobs:
       - run: npm ci
       - run: npm run typecheck
       - run: npm run build
+      - name: Generate BJ OPD Windows icon
+        shell: pwsh
+        run: ./scripts/Make-BJOPDIcon.ps1
       - name: Package BJ OPD EXE from CURRENT repository
         run: npx electron-builder --win nsis --publish never
       - uses: actions/upload-artifact@v4
