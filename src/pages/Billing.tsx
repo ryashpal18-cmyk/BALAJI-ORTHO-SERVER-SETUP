@@ -135,7 +135,7 @@ ${clinic.name} की सूचना।
 ${clinic.name}`;
 }
 
-function buildInvoiceHTML(bill: any, logoUrl: string = "/images/logo.png") {
+function buildInvoiceHTML(bill: any, logoUrl: string = "/bj-opd-icon.png") {
   const clinic = requireClinicProfile();
   const patientName = escapeHtml((bill.patients as any)?.name || "Patient");
   const patientAge = (bill.patients as any)?.age || "—";
@@ -272,7 +272,7 @@ function buildInvoiceHTML(bill: any, logoUrl: string = "/images/logo.png") {
         ${bill.familyQr ? `<div style="display:flex;align-items:center;gap:10px;padding:6px 0"><img src="${bill.familyQr}" alt="Family Profile QR" style="width:96px;height:96px"/><div style="font-size:9px">Clinic Family Profile<br>Login required</div></div>` : ""}
         <!-- Footer -->
         <div style="display:flex;justify-content:space-between;align-items:center;border-top:1px solid #e2e8f0;padding-top:4px;margin-top:2px;">
-          <span style="font-size:7.5px;color:#94a3b8;">📞 +91 8005707783 &nbsp;|&nbsp; Opp Govt Hospital, Bay Pass Road, Khinwara</span>
+          <span style="font-size:7.5px;color:#94a3b8;">${escapeHtml([clinic.phone,clinic.address].filter(Boolean).join(" | "))}</span>
           <span style="font-size:7.5px;color:#0891b2;font-weight:600;">Thank you for your trust 🙏</span>
         </div>
       </div>
