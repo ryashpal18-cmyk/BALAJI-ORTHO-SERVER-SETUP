@@ -1,4 +1,5 @@
 import { queryClient } from "@/lib/queryClient";
+import { saveClinicProfile } from "@/lib/clinicProfile";
 import { migrateLegacyIndexedDbIfNeeded } from "@/lib/offlineDb";
 import { startAutoSync } from "@/lib/offlineSync";
 import { startAutoBackupScheduler } from "@/lib/backup";
@@ -41,6 +42,12 @@ export default function Login() {
   const enter = async (profile: any) => {
     if (profile.role === "admin") await migrateLegacyIndexedDbIfNeeded();
     displaySession(profile);
+    // Load the clinic server's saved identity before any new patient-facing document or message.
+    const bridge=(window as any).electron;
+    if(bridge?.clinicProfile){
+      try { const clinic=await bridge.clinicProfile(); if(clinic?.name)saveClinicProfile(clinic); }
+      catch { /* Authentication must remain available offline even when profile lookup fails. */ }
+    }
     startAutoSync();
     if (profile.role === "admin") startAutoBackupScheduler();
     setPassword(""); setConfirmPassword("");
