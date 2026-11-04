@@ -81,6 +81,32 @@ function goodCloud(url) {
   t.api.logout();assert.equal((await t.api.connect()).success,false);assert.equal(t.calls,0);
   console.log('PASS API-only sync, no local credential network requests, encrypted credential migration, logout gate');
 
+  // Fresh install: temporary credentials must be changed before an admin session exists.
+  const fresh=fixture();
+  assert.equal(fresh.api.status().configured, false);
+  const boot = await fresh.api.login({identifier:'admin',secret:'admin'});
+  assert.equal(boot.success, true);
+  assert.equal(boot.requiresPasswordChange, true);
+  assert.equal(fresh.principal, null);
+  assert.equal(fresh.api.restore(), null);
+  assert.equal((await fresh.api.changeCredentials({
+    identifier:'admin',secret:'admin',newIdentifier:'clinicowner@example.test',
+    newSecret:'New-Secret-For-Clinic-1',confirmSecret:'New-Secret-For-Clinic-1',
+    changeToken:'wrong-token',
+  })).success, false);
+  const rotated = await fresh.api.changeCredentials({
+    identifier:'admin',secret:'admin',newIdentifier:'clinicowner@example.test',
+    newSecret:'New-Secret-For-Clinic-1',confirmSecret:'New-Secret-For-Clinic-1',
+    changeToken:boot.changeToken,
+  });
+  assert.equal(rotated.success, true);
+  assert.equal(rotated.principal.localAdmin, true);
+  assert.equal(fresh.api.status().email, 'clinicowner@example.test');
+  assert.equal((await fresh.api.login({identifier:'admin',secret:'admin'})).success, false);
+  fresh.api.logout();
+  assert.equal((await fresh.api.login({identifier:'clinicowner@example.test',secret:'New-Secret-For-Clinic-1'})).success,true);
+  console.log('PASS temporary admin credentials cannot access records before secure rotation');
+
   const corrupt=fixture(); await corrupt.setup();
   fs.writeFileSync(corrupt.file,'broken');
   corrupt.restart();
