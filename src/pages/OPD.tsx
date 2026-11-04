@@ -376,9 +376,10 @@ export default function OPD() {
       if (signError || !urlData?.signedUrl) throw signError || new Error("Cannot create PDF link");
       const pdfLink = urlData.signedUrl;
 
+      const CLINIC = requireClinicProfile();
       // Build WhatsApp message with PDF link
       const msg = [
-        `📋 *Prescription from ${escapeHtml(CLINIC.name)}*`,
+        `📋 *Prescription from ${CLINIC.name}*`,
         `👨‍⚕️ ${escapeHtml(CLINIC.doctor)}`,
         ``,
         `👤 Patient: ${patient?.name || "N/A"}`,
