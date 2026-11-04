@@ -1,3 +1,4 @@
+import {getClinicProfile} from "@/lib/clinicProfile";
 import { useEffect, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
 import { Button } from './ui/button';
@@ -5,7 +6,7 @@ import { Textarea } from './ui/textarea';
 import { OutreachStatus } from './OutreachStatus';
 export function VillageMessagePanel({patientIds,title,disabled=false}:{patientIds:string[];title:string;disabled?:boolean}){
  const bridge=(window as any).electron?.outreach;
- const [open,setOpen]=useState(false),[wa,setWa]=useState(true),[sms,setSms]=useState(false),[message,setMessage]=useState('नमस्ते [NAME] जी,\nBalaji Digital X-Ray & Ortho Care Center की ओर से सूचना।\n'),[preview,setPreview]=useState<any>(null),[error,setError]=useState(''),[busy,setBusy]=useState(false),[campaign,setCampaign]=useState(''),[requestId,setRequestId]=useState(()=>crypto.randomUUID());
+ const [open,setOpen]=useState(false),[wa,setWa]=useState(true),[sms,setSms]=useState(false),[message,setMessage]=useState(`नमस्ते [NAME] जी,\n${getClinicProfile().name || 'Clinic / Hospital'} की ओर से सूचना।\n`),[preview,setPreview]=useState<any>(null),[error,setError]=useState(''),[busy,setBusy]=useState(false),[campaign,setCampaign]=useState(''),[requestId,setRequestId]=useState(()=>crypto.randomUUID());
  const identity=JSON.stringify([...patientIds].sort());
  useEffect(()=>{setPreview(null);},[identity,title,wa,sms,message]);
  const input=()=>({requestId,patientIds,title,channels:[...(wa?['whatsapp']:[]),...(sms?['sms']:[])],whatsapp:message,sms:message});
