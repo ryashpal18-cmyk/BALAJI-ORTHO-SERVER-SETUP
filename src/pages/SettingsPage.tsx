@@ -53,6 +53,12 @@ const ACCENT_COLORS = [
 export default function SettingsPage() {
   const navigate = useNavigate();
   const [tab, setTab]             = useState<Tab>("clinic");
+  const [currentAdminId, setCurrentAdminId] = useState("");
+  const [currentAdminPassword, setCurrentAdminPassword] = useState("");
+  const [newAdminId, setNewAdminId] = useState("");
+  const [newAdminPassword, setNewAdminPassword] = useState("");
+  const [confirmAdminPassword, setConfirmAdminPassword] = useState("");
+  const [changingAdminLogin, setChangingAdminLogin] = useState(false);
   const role                       = getCurrentRole();
   const isAdmin                    = role === "admin";
 
