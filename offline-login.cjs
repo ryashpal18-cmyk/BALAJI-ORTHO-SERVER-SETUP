@@ -103,6 +103,7 @@ function createOffline({ file, safeStorage, access, now = Date.now, fetchCloud, 
     } finally { busy = false; }
   }
   async function changeCredentials(args = {}) {
+    const epoch = generation;
     if (busy) return { success: false, error: 'Another authentication operation is running.' };
     busy = true;
     try {
@@ -126,6 +127,7 @@ function createOffline({ file, safeStorage, access, now = Date.now, fetchCloud, 
       if (!crypto.timingSafeEqual(actual, Buffer.from(record.hash, 'base64')))
         return { success: false, error: 'Current ID or password is incorrect.' };
       const salt = crypto.randomBytes(16), hash = await deriveKey(nextSecret, salt);
+      if (epoch !== generation) return { success: false, error: 'Password change cancelled. Sign in again.' };
       record.email = nextId;
       record.salt = salt.toString('base64');
       record.hash = hash.toString('base64');

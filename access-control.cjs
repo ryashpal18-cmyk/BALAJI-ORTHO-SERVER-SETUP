@@ -83,6 +83,10 @@ function authorize(channel, args, store) {
     }
   }
   if (['auth:login','auth:check','auth:logout','auth:establish','auth:offlineLogin','auth:offlineSetup','auth:offlineStatus','app:isOnline','app:getVersion','log:rendererError'].includes(channel)) return;
+  // First-run password rotation has no principal until the one-time token is verified.
+  if (channel === 'auth:changeOfflineCredentials' &&
+      typeof args[0]?.changeToken === 'string' &&
+      /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(args[0].changeToken)) return;
   const p = getPrincipal(); if (!p) throw new Error('Please log in');
   if (channel === 'offline:commitBatch') return; // Each operation is authorized inside the atomic transaction.
   if (['auth:syncSession','auth:adoptSyncSession','auth:cloudSyncStatus'].includes(channel) && !p.localAdmin) throw new Error('Local administrator required');

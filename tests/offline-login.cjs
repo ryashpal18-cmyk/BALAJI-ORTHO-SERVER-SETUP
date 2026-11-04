@@ -89,6 +89,11 @@ function goodCloud(url) {
   assert.equal(boot.requiresPasswordChange, true);
   assert.equal(fresh.principal, null);
   assert.equal(fresh.api.restore(), null);
+  const ipcAccess = require('../access-control.cjs');
+  ipcAccess.setPrincipal(null);
+  assert.throws(() => ipcAccess.authorize('auth:changeOfflineCredentials', [{}]), /Please log in/);
+  assert.doesNotThrow(() => ipcAccess.authorize('auth:changeOfflineCredentials', [{changeToken:boot.changeToken}]));
+  assert.throws(() => ipcAccess.authorize('offline:snapshot', [{}]), /Please log in/);
   assert.equal((await fresh.api.changeCredentials({
     identifier:'admin',secret:'admin',newIdentifier:'clinicowner',
     newSecret:'New-Secret-For-Clinic-1',confirmSecret:'New-Secret-For-Clinic-1',
