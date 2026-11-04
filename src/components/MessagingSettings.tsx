@@ -1,4 +1,5 @@
 import { useEffect, useState, type FormEvent } from "react";
+import { WhatsAppApiSettings } from "@/components/WhatsAppApiSettings";
 import { WhatsAppConnection } from "@/components/WhatsAppConnection";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -98,6 +99,7 @@ export function MessagingSettings() {
           </form>
         </CardContent>
       </Card>
+      <WhatsAppApiSettings />
       <WhatsAppConnection />
     </div>
   );

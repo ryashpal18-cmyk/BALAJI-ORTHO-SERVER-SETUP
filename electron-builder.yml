@@ -19,6 +19,7 @@ files:
   - pc-messaging.cjs
   - clinic-profile.cjs
   - whatsapp-service.cjs
+  - whatsapp-cloud.cjs
   - messaging-log.cjs
   - family-profile.cjs
   - invoice-document.cjs

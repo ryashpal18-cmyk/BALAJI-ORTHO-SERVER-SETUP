@@ -3,7 +3,7 @@ const path=require('path'),fs=require('fs');
 const {createMessagingLog}=require('./messaging-log.cjs');
 const clinicProfile=require('./clinic-profile.cjs');
 const {parseFamilyLink,familyGroups,familyRecords}=require('./family-profile.cjs');
-function registerPcMessaging({app,BrowserWindow,ipcMain,dialog,shell,store,access,sendSMS,getSmsGateway,logger}) {
+function registerPcMessaging({app,BrowserWindow,ipcMain,dialog,shell,store,access,sendSMS,getSmsGateway,whatsappCloud,authEpoch,logger}) {
   const report=createMessagingLog(logger,'messaging-worker');
   let pending=null;
   const accept=args=>{for(const arg of args||[]){const id=parseFamilyLink(arg);if(id)pending=id;}};
@@ -24,12 +24,19 @@ function registerPcMessaging({app,BrowserWindow,ipcMain,dialog,shell,store,acces
       return await Promise.race([task,new Promise((_,reject)=>{timer=setTimeout(()=>reject(Error('PDF rendering timed out')),30000);})]);
     }finally{clearTimeout(timer);if(!win.isDestroyed())win.destroy();}
   }
-  const service=require('./whatsapp-service.cjs').createWhatsAppService({store,root:path.join(app.getPath('userData'),'clinic-messaging'),allowed,renderPdf,logger,getClinic});
+  const service=require('./whatsapp-service.cjs').createWhatsAppService({store,root:path.join(app.getPath('userData'),'clinic-messaging'),allowed,renderPdf,logger,getClinic,cloud:whatsappCloud});
   const admin=fn=>(...args)=>{if(!allowed())throw Error('Administrator login required');return fn(...args);};
   ipcMain.handle('patients:directory',admin(()=>store.patientDirectoryRows()));
   ipcMain.handle('family:list',admin(()=>familyGroups(store.cacheGetAll('patients'))));
   ipcMain.handle('family:profile',admin((_e,id)=>familyRecords(store,id)));
   ipcMain.handle('family:pending',admin(()=>{const id=pending;pending=null;return id;}));
+  ipcMain.handle('whatsapp:apiStatus',admin(()=>whatsappCloud.status()));
+  ipcMain.handle('whatsapp:apiConnect',admin((_e,input)=>{
+    const principal=access.getPrincipal();
+    const epoch=authEpoch();
+    return whatsappCloud.connect(input,()=>access.getPrincipal()===principal&&authEpoch()===epoch);
+  }));
+  ipcMain.handle('whatsapp:useQr',admin(()=>whatsappCloud.useQr()));
   ipcMain.handle('whatsapp:status',admin(()=>service.status()));
   ipcMain.handle('whatsapp:connect',admin(()=>service.connect()));
   ipcMain.handle('whatsapp:disconnect',admin(()=>service.disconnect()));

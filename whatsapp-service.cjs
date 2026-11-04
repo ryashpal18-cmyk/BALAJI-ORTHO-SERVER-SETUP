@@ -14,7 +14,7 @@ function findBrowser() {
   const paths=[process.env.PROGRAMFILES,process.env['PROGRAMFILES(X86)'],process.env.LOCALAPPDATA].filter(Boolean).flatMap(root=>[path.join(root,'Microsoft','Edge','Application','msedge.exe'),path.join(root,'Google','Chrome','Application','chrome.exe')]);
   return paths.find(file=>fs.existsSync(file));
 }
-function createWhatsAppService({store,root,allowed,renderPdf,clientFactory,mediaFactory,now=Date.now,timeoutMs=60000,browserPath=findBrowser,logger,getClinic=()=>({name:'Clinic / Hospital',doctor:'',phone:''})}) {
+function createWhatsAppService({store,root,allowed,renderPdf,clientFactory,mediaFactory,now=Date.now,timeoutMs=60000,browserPath=findBrowser,logger,cloud,getClinic=()=>({name:'Clinic / Hospital',doctor:'',phone:''})}) {
   const jobsKey='whatsapp:invoice-jobs',settingsKey='whatsapp:settings';
   const report=createMessagingLog(logger,'whatsapp',now);
   let client=null,ready=false,qr=null,state='disconnected',error='',busy=false,stopped=false,nextConnect=0;
@@ -127,9 +127,13 @@ function createWhatsAppService({store,root,allowed,renderPdf,clientFactory,media
     const file=path.join(dir,crypto.createHash('sha256').update(normId(bill.id)+fingerprint).digest('hex').slice(0,32)+'.pdf');
     fs.writeFileSync(file+'.tmp',bytes);fs.renameSync(file+'.tmp',file);return file;
   }
-  function status(){assertAllowed();return{state,ready,qr,error,auto:settings().auto!==false,paired:!!settings().paired,jobs:jobs().map(({pdfPath,...j})=>j).reverse()};}
+  function status(){
+    assertAllowed();
+    const api=cloud?.status();
+    return{state:api?.active?(api.configured?'api-connected':'api-credentials-required'):state,
+      ready:api?.active?api.configured:ready,qr:api?.active?null:qr,error:api?.active?'':error,api,auto:settings().auto!==false,paired:!!settings().paired,jobs:jobs().map(({pdfPath,...j})=>j).reverse()};}
   async function connect(){
-    assertAllowed();if(client)return status();
+    assertAllowed();if(cloud?.status().active||client)return status();
     const executablePath=browserPath();if(!executablePath)throw Error('PC में Microsoft Edge या Google Chrome install करें।');
     stopped=false;state='connecting';error='';qr=null;
     const factory=clientFactory||((options)=>{const{Client,LocalAuth}=require('whatsapp-web.js');return new Client({authStrategy:new LocalAuth({clientId:'balaji-clinic',dataPath:path.join(root,'whatsapp-auth')}),webVersionCache:{type:'none'},puppeteer:{executablePath,headless:true,timeout:45000},...options});});
@@ -145,7 +149,7 @@ function createWhatsAppService({store,root,allowed,renderPdf,clientFactory,media
   async function disconnect(){assertAllowed();store.metaSet(settingsKey,{...settings(),paired:false});stopped=true;const old=client;client=null;ready=false;qr=null;state='disconnected';if(old){await old.logout().catch(()=>{});await old.destroy().catch(()=>{});}return status();}
   const bounded=(promise,ms)=>{let timer;return Promise.race([promise,new Promise((_,reject)=>{timer=setTimeout(()=>reject(Error('Request timed out')),ms);})]).finally(()=>clearTimeout(timer));};
   async function tick(){
-    if(stopped||busy||!allowed())return;
+    if((stopped&&!cloud?.status().active)||busy||!allowed())return;
     busy=true;
     try{
       try{scheduleMonthly();}catch(e){report('WA-013','Monthly report scheduling',e,{kind:'monthly'});error=String(e.message||e);}
@@ -153,8 +157,10 @@ function createWhatsAppService({store,root,allowed,renderPdf,clientFactory,media
         const since=store.metaGet('whatsapp:started-at');
         for(const bill of store.cacheGetAll('billing'))if(Date.parse(bill.created_at)>=since&&!jobs().some(j=>normId(j.billId)===normId(bill.id)))try{enqueue(bill.id);}catch(e){report('WA-013','Automatic bill queue',e,{jobId:bill.id,kind:'bill',level:'warn'});}
       }
-      if(!client&&settings().paired&&now()>=nextConnect){nextConnect=now()+60000;await connect();}
-      if(!ready||!client)return;
+      const apiMode=cloud?.status().active;
+      const connection=cloud?.connection();
+      if(!apiMode&&!client&&settings().paired&&now()>=nextConnect){nextConnect=now()+60000;await connect();}
+      if(apiMode?!connection:!ready||!client)return;
       const job=jobs().find(j=>j.state==='queued'&&(!j.retryAt||j.retryAt<=now()));if(!job)return;
       let handedOff=false,failureStage='PDF बनाना';
       try{
@@ -164,12 +170,33 @@ function createWhatsAppService({store,root,allowed,renderPdf,clientFactory,media
         if(!stillQueued(job))return;
         const fresh=jobData(job);
         if(fresh.fingerprint!==current.fingerprint)throw Error(job.kind==='statement'?'STATEMENT-004: हिसाब बदला; फिर preview करें।':'Bill बदल गया; नवीनतम PDF दोबारा बनेगी');
+        if(apiMode){
+          failureStage='WhatsApp API PDF upload';
+          if(!connection.templates.document){
+            patch(job.id,{retryAt:now()+60000,error:'Settings में PDF के लिए Meta template जोड़ें।'});return;
+          }
+          if(!allowed()||cloud.connection()!==connection)return;
+          const mediaId=await cloud.uploadPdf(connection,pdfPath);
+          if(!allowed()||!stillQueued(job)||cloud.connection()!==connection)return;
+          if(job.kind==='monthly')assertMonthlyJob(job);
+          if(jobData(job).fingerprint!==fresh.fingerprint)throw Error('हिसाब या mobile बदला; PDF दोबारा बनेगी।');
+          const mobile=familyNumber(fresh.patient.mobile);
+          patch(job.id,{state:'sending',pdfPath,mobile,patientName:fresh.patient.name,fingerprint:fresh.fingerprint,attempts:(job.attempts||0)+1,error:''});
+          failureStage='WhatsApp API message';
+          handedOff=true;
+          const result=await cloud.sendTemplate(connection,'91'+mobile,'document',getClinic().name,mediaId);
+          if(result.ok){
+            patch(job.id,{state:'sent',messageId:result.messageId,sentAt:new Date(now()).toISOString(),error:'',errorDetail:'',failureStage:''});return;
+          }
+          if(result.uncertain)throw Error(result.error);
+          patch(job.id,{state:result.permanent?'failed':'queued',retryAt:now()+60000,error:result.error,failureStage});return;
+        }
         failureStage='WhatsApp नंबर जाँचना';
         const number=await bounded(activeClient.getNumberId('91'+familyNumber(fresh.patient.mobile)),30000);
-        if(!stillQueued(job))return;
+        if(cloud?.status().active||!stillQueued(job))return;
         if(!number) {report('WA-011',failureStage,Error('Recipient WhatsApp account not found'),{jobId:job.id,kind:job.kind||'bill',channel:'whatsapp',deliveryState:'failed',level:'warn'});patch(job.id,{state:'failed',error:'इस नंबर पर WhatsApp account नहीं मिला'});return;}
         const chatId=serializedId(number);if(!chatId)throw Error('WhatsApp chat ID नहीं मिली; connector compatibility जाँचें');
-        assertAllowed();if(client!==activeClient||!ready)throw Error('WhatsApp connection बदल गया');
+        assertAllowed();if(cloud?.status().active||client!==activeClient||!ready)throw Error('WhatsApp connection बदल गया');
         if(job.kind==='monthly')assertMonthlyJob(job);
         if(jobData(job).fingerprint!==fresh.fingerprint)throw Error(job.kind==='statement'?'STATEMENT-004: हिसाब या mobile बदला; फिर preview करें।':'Bill या mobile बदला; PDF दोबारा बनेगी');
         if(!stillQueued(job))return;
@@ -201,13 +228,25 @@ function createWhatsAppService({store,root,allowed,renderPdf,clientFactory,media
   async function sendText(mobile,text,validate=()=>true,logContext={}){
     assertAllowed();const normalized=familyNumber(mobile);
     if(!normalized||typeof text!=='string'||!text.trim()||text.length>1500)return{ok:false,permanent:true,error:'सही नंबर और संदेश चाहिए।'};
-    if(!ready||!client||busy)return{ok:false,error:'WhatsApp कनेक्शन/पिछले संदेश की प्रतीक्षा में'};
+    const apiMode=cloud?.status().active;
+    const connection=cloud?.connection();
+    if(busy||(apiMode?!connection:!ready||!client))return{ok:false,error:'WhatsApp कनेक्शन/पिछले संदेश की प्रतीक्षा में'};
     busy=true;let handedOff=false,failureStage='WhatsApp text number lookup';
     try{
+      if(apiMode){
+        const check=validate();
+        if(check!==true)return{ok:false,cancelled:check==='cancelled',error:'प्राप्तकर्ता या अभियान बदला है; संदेश रोका गया।'};
+        assertAllowed();
+        if(cloud.connection()!==connection)return{ok:false,error:'WhatsApp API connection बदल गया।'};
+        failureStage='WhatsApp API template message';
+        handedOff=true;
+        return await cloud.sendTemplate(connection,'91'+normalized,logContext.kind||'bulk',text);
+      }
       const activeClient=client,number=await bounded(activeClient.getNumberId('91'+normalized),30000);
+      if(cloud?.status().active)return{ok:false,error:'WhatsApp connection बदल गया।'};
       if(!number){report('WA-012',failureStage,Error('Recipient WhatsApp account not found'),{...logContext,channel:'whatsapp',deliveryState:'failed',level:'warn'});return{ok:false,permanent:true,error:'इस नंबर पर WhatsApp नहीं है।'};}
       const chatId=serializedId(number);if(!chatId){report('WA-012',failureStage,Error('WhatsApp chat ID missing'),{...logContext,channel:'whatsapp',deliveryState:'queued'});return{ok:false,error:'WhatsApp chat ID नहीं मिली; connector compatibility जाँचें।'};}
-      assertAllowed();if(client!==activeClient||!ready)return{ok:false,error:'WhatsApp connection बदल गया।'};
+      assertAllowed();if(cloud?.status().active||client!==activeClient||!ready)return{ok:false,error:'WhatsApp connection बदल गया।'};
       const check=validate();if(check!==true)return{ok:false,cancelled:check==='cancelled',error:'प्राप्तकर्ता या अभियान बदला है; संदेश रोका गया।'};
       failureStage='WhatsApp text send';
       handedOff=true;

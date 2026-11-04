@@ -14,6 +14,9 @@ contextBridge.exposeInMainWorld('electron', {
   family: {list: () => ipcRenderer.invoke('family:list'), profile: id => ipcRenderer.invoke('family:profile', id)},
   whatsapp: {
     status: () => ipcRenderer.invoke('whatsapp:status'),
+    apiStatus: () => ipcRenderer.invoke('whatsapp:apiStatus'),
+    apiConnect: input => ipcRenderer.invoke('whatsapp:apiConnect', input),
+    useQr: () => ipcRenderer.invoke('whatsapp:useQr'),
     connect: () => ipcRenderer.invoke('whatsapp:connect'),
     disconnect: () => ipcRenderer.invoke('whatsapp:disconnect'),
     setAuto: value => ipcRenderer.invoke('whatsapp:auto', value),
