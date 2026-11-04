@@ -269,7 +269,7 @@ export default function Login() {
                 </div>
               </div>
 
-              {mode === "local" && !configured && <label style={{ fontSize: 12, fontWeight: 600 }}>
+              {mode === "local" && !configured && !(username.trim().toLowerCase() === "admin" && password === "admin") && <label style={{ fontSize: 12, fontWeight: 600 }}>
                 Password dobara dalein
                 <input aria-label="Confirm password" type="password" value={confirmPassword} onChange={e => setConfirmPassword(e.target.value)} autoComplete="new-password" required minLength={8}
                   style={{ width: "100%", height: 42, border: "1px solid #d5dde8", borderRadius: 8, padding: 10, marginTop: 6 }} />
