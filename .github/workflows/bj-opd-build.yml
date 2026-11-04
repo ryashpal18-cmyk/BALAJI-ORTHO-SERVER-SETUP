@@ -26,6 +26,7 @@ jobs:
       - run: npm ci
       - run: npm run typecheck
       - run: node tests/offline-login.cjs
+      - run: node tests/clinic-profile.cjs
       - run: npm run build
       - run: npx --no-install electron-builder --win nsis --publish never
       - uses: actions/upload-artifact@v4
