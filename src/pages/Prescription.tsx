@@ -17,7 +17,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import LetterpadPatientPrint from "@/components/LetterpadPatientPrint";
 import { toast } from "@/hooks/use-toast";
-import { openWhatsApp, CLINIC_NAME } from "@/lib/whatsappOrtho";
+import { openWhatsApp, clinicName } from "@/lib/whatsappOrtho";
 import {
   ArrowLeft, Search, Plus, Trash2, Printer, MessageCircle, Save, Pill,
 } from "lucide-react";
@@ -157,7 +157,7 @@ export default function Prescription() {
     const lines = [
       `नमस्ते ${patient.name},`,
       ``,
-      `${CLINIC_NAME}`,
+      `${clinicName()}`,
       `${DOCTOR_NAME} (${DOCTOR_QUALIFICATION})`,
       ``,
       diagnosis ? `📋 Diagnosis: ${diagnosis}` : null,
@@ -249,7 +249,7 @@ export default function Prescription() {
         <div className="border rounded-xl bg-card shadow-sm print-area" id="prescription-print">
           {/* Letterhead */}
           <div className="p-5 border-b text-center bg-muted/20">
-            <h1 className="text-xl font-bold">{CLINIC_NAME}</h1>
+            <h1 className="text-xl font-bold">{clinicName()}</h1>
             <p className="text-sm text-muted-foreground mt-0.5">{DOCTOR_NAME} · {DOCTOR_QUALIFICATION}</p>
           </div>
 
