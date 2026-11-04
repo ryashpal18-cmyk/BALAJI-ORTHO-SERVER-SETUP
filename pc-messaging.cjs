@@ -16,6 +16,8 @@ function registerPcMessaging({app,BrowserWindow,ipcMain,dialog,shell,store,acces
   const getClinic=()=>clinicProfile.requireProfile(store);
   ipcMain.handle('clinic:profile',()=>{if(!access.getPrincipal())throw Error('Login required');return clinicProfile.profile(store);});
   ipcMain.handle('clinic:saveProfile',(_event,input)=>{if(!allowed())throw Error('Admin login required');return clinicProfile.saveProfile(store,input);});
+  ipcMain.handle('clinic:syncState',()=>clinicProfile.syncState(store));
+  ipcMain.handle('clinic:acceptCloud',(_event,{row,expected})=>clinicProfile.acceptCloud(store,row,expected));
   async function renderPdf(html) {
     const win=new BrowserWindow({show:false,webPreferences:{nodeIntegration:false,contextIsolation:true,sandbox:true,partition:'invoice-pdf'}});
     let timer;

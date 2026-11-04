@@ -99,6 +99,8 @@ contextBridge.exposeInMainWorld('electron', {
   getFractureCases:   ()     => ipcRenderer.invoke('db:getFractureCases'),
   updateFractureCase: (data) => ipcRenderer.invoke('db:updateFractureCase', data),
 
+  clinicSyncState: () => ipcRenderer.invoke('clinic:syncState'),
+  acceptClinicCloud: data => ipcRenderer.invoke('clinic:acceptCloud', data),
   clinicProfile: () => ipcRenderer.invoke('clinic:profile'),
   saveClinicProfile: data => ipcRenderer.invoke('clinic:saveProfile', data),
   // ── Settings ────────────────────────────────────────────────

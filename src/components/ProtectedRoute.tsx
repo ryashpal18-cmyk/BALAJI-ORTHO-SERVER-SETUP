@@ -1,3 +1,4 @@
+import { syncClinicProfile } from "@/lib/clinicProfileSync";
 import { useEffect, useState } from "react";
 import { Navigate, useLocation } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
@@ -31,6 +32,8 @@ export function ProtectedRoute({ children }: { children: React.ReactNode }) {
         else { const { data, error } = await supabase.functions.invoke("session-access"); if (error) throw error; profile = data; }
         if (live) {
           if (profile) {
+            if (!bridge) await syncClinicProfile(false).catch(() => {});
+            if (!live) return;
             displaySession(profile);
             startAutoSync();
             if (profile.role === "admin") {

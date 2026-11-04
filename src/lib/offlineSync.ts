@@ -1,3 +1,5 @@
+import { getCurrentRole } from "@/lib/appConfig";
+import { syncClinicProfile } from "./clinicProfileSync";
 import { warmRegistrationNumbers } from "./patientRegistration";
 import { normalizeBill } from "./paymentLedger";
 import { fetchCompleteTable, OPERATIONAL_TABLES, resetCloudSchemaBackoff } from "./completeFetch";
@@ -392,6 +394,9 @@ export async function runSync(options:{retrySchema?:boolean;retrySmsConfig?:bool
       drain(true),
       (async () => {
         if (!(await ensureCloudSession())) { lastError = "Settings → Cloud Sync में cloud connection जोड़ें; pending data PC पर सुरक्षित है"; return; }
+        if ((window as any).electron?.clinicSyncState) {
+          void syncClinicProfile(getCurrentRole() === "admin").catch(error => cLog.warn("sync", "Clinic profile sync delayed", error));
+        }
         await drain(false);
       })(),
     ]);

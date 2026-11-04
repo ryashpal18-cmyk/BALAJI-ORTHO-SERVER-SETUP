@@ -1,3 +1,5 @@
+import { syncClinicProfile } from "@/lib/clinicProfileSync";
+import { ensureCloudSession } from "@/lib/localSession";
 import { ClinicSetupWizard } from "@/components/ClinicSetupWizard";
 import { PatientImport } from "@/components/PatientImport";
 import { MessagingSettings } from "@/components/MessagingSettings";
@@ -339,16 +341,32 @@ export default function SettingsPage() {
 
   // ── Save handlers ──
   const handleSaveClinic = async () => {
-    if (!isAdmin) return;
+    if (!isAdmin || !(window as any).electron?.saveClinicProfile) return;
     try {
       const proposed = {name:clinicName,doctor:docName,phone,address};
       const bridge = (window as any).electron;
       // The clinic server owns the settings on a desktop installation.
       const confirmed = bridge?.saveClinicProfile ? await bridge.saveClinicProfile(proposed) : proposed;
       saveClinicProfile(confirmed);
+      void ensureCloudSession().then(ready => { if (ready) return syncClinicProfile(true); }).catch((error: Error) => {
+        toast({title:"Clinic Info PC पर सेव है, cloud sync बाकी", description:error.message, variant:"destructive"});
+      });
       toast({title:"Clinic details saved",description:"New bills, PDFs, WhatsApp and SMS will use this clinic name."});
     } catch (error:any) {
       toast({title:"Clinic information not saved",description:error.message,variant:"destructive"});
+    }
+  };
+
+  const loadServerClinic = async () => {
+    if (!window.confirm("Server की Clinic Info लोड करें? इस PC की pending Clinic Info बदल जाएगी।")) return;
+    try {
+      if (!navigator.onLine || !await ensureCloudSession()) throw Error("पहले Cloud Sync जोड़ें।");
+      await syncClinicProfile(true, true);
+      const saved = getClinicProfile();
+      setClinicName(saved.name); setDocName(saved.doctor); setAddress(saved.address); setPhone(saved.phone);
+      toast({ title: "Server की Clinic Info लोड हुई" });
+    } catch (error: any) {
+      toast({ title: "Clinic Info sync नहीं हुई", description: error.message, variant: "destructive" });
     }
   };
 
@@ -559,10 +577,12 @@ export default function SettingsPage() {
                     style={{ fontSize: "13px", background: "#f8fafc" }} />
                 </div>
               ))}
-              <Button onClick={handleSaveClinic} style={{ width: "fit-content", gap: "6px" }}>
+              <Button disabled={!isElectron} onClick={handleSaveClinic} style={{ width: "fit-content", gap: "6px" }}>
                 <Check style={{ width: "14px", height: "14px" }} />
                 Save Changes
               </Button>
+              {isElectron ? <Button variant="outline" onClick={() => void loadServerClinic()}>Server की Clinic Info लोड करें</Button>
+                : <p className="text-sm">Clinic Info बदलने के लिए Windows EXE इस्तेमाल करें।</p>}
             </CardContent>
           </Card>
         )}

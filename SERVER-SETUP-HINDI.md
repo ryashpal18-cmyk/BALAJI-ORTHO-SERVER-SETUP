@@ -17,3 +17,7 @@ Owner token, plaintext password और server secret key local config/log मे
 यह EXE edition है; मूल APK और EXE repositories अपरिवर्तित हैं। OAuth “Sign in with Supabase” registration इस build में नहीं है; owner token वाला स्पष्ट first-time setup है। AI provider और SMS gateway credentials इस server setup का हिस्सा नहीं हैं।
 
 Validation: local schema execution/RLS/registration/billing checks, mocked HTTP provisioning/resume/secret-handling tests, TypeScript and Vite build. CI also runs actual Windows Electron launch and Settings/preload smoke. New live customer project provisioning needs a separate end-to-end device/project test before commercial distribution.
+
+
+## PC और मोबाइल पर Clinic Info
+नए server setup में Clinic Info sync शामिल है। पुराने BJ OPD Server project पर पहले `docs/CLINIC_PROFILE_SYNC.sql` का staging पर परीक्षण करें, फिर उसी clinic project पर लागू करें। Windows Admin में Clinic Info सेव करें और Cloud Sync जोड़ें। Mobile उसी project में login होने पर नाम, डॉक्टर, फोन और पता पढ़ेगा। दो PC की offline edits टकराएँ तो Windows Settings में Server की Clinic Info लोड करें, फिर अपना बदलाव दोबारा सेव करें।
