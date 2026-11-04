@@ -63,7 +63,7 @@ function createOffline({ file, safeStorage, access, now = Date.now, fetchCloud, 
           hash: hash.toString('base64'), mustChange: true, remember: false };
         write(record);
       }
-      const validIdentity = email === 'admin' || /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+      const validIdentity = /^[a-z][a-z0-9._-]{2,63}$/.test(email) || /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
       const bootstrapLogin = !!record?.mustChange && email === 'admin' && secret === 'admin';
       if (!validIdentity || email.length > 254 || typeof secret !== 'string'
         || ((!bootstrapLogin && secret.length < MIN_SECRET) || secret.length > MAX_SECRET))
