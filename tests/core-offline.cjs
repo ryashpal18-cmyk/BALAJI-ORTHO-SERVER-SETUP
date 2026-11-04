@@ -19,7 +19,7 @@ for(const name of ['cacheMergeServer','cacheGetAll','cacheGetRow','cacheSetRows'
  bridge[name]=async(...args)=>{try{return {success:true,data:structuredClone(store[name](...args))}}catch(e){return {success:false,error:e.message}}};
 bridge.queueAdd=async m=>{try{return {success:true,id:store.queueAdd(m)}}catch(e){return {success:false,id:-1,error:e.message}}};
 bridge.metaGet=async key=>({success:true,value:store.metaGet(key)});
-const windowMock={electron:{offline:bridge},addEventListener:noop};
+const windowMock={electron:{offline:bridge,messaging:{billSmsEnabled:async()=>true}},addEventListener:noop};
 function load(file,names,deps={}){
  let source=fs.readFileSync(root+'/'+file,'utf8').replace(/^import[\s\S]*?from\s+["'][^"']+["'];?/gm,'').replaceAll('import.meta.env','({})');
  source=ts.transpile(source.replace(/\bexport\s+/g,''),{target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.CommonJS});
@@ -33,7 +33,7 @@ const offline=load('src/lib/offlineQuery.ts',['offlineInsert','offlineUpdate','o
 
 const {normalizeBill}=require('./audit-fixtures.cjs');
 const invoice=load('src/lib/invoiceNumber.ts',['invoiceNumber']);
-const sms=load('src/lib/billSmsMessage.ts',['buildBillSmsMessage']);
+const sms=load('src/lib/billSmsMessage.ts',['buildBillSmsMessage'],{requireClinicProfile:()=>({name:'Synthetic Clinic'})});
 const save=load('src/lib/saveBillOffline.ts',['saveBillOffline'],{...db,...payment,...invoice,...sms,normalizeBill,normalizeIndianMobile:x=>'91'+x,isValidMobile:x=>/^\d{10}$/.test(x),runSync:async()=>{}}).saveBillOffline;
 function expression(file,name) { const text=fs.readFileSync(root+'/'+file,'utf8'),ast=ts.createSourceFile(file,text,ts.ScriptTarget.Latest,true,ts.ScriptKind.TSX);let out;function walk(n){if(ts.isVariableDeclaration(n)&&n.name.getText(ast)===name)out=n.initializer;ts.forEachChild(n,walk)}walk(ast);return {node:out,ast}; }
 function evaluate(code,ctx){return vm.runInNewContext(ts.transpile('const result = '+code+';',{target:ts.ScriptTarget.ES2022})+'result',ctx)}

@@ -282,7 +282,7 @@ async function applyMutation(m: QueuedMutation): Promise<void> {
     const result = await electron.sendSMS({ requestId: messageId, mobile, message });
     if (!result?.ok) {
       if (result?.uncertain || result?.needsReview) {
-        await queueUpdate(m.id!, { payload: { ...m.payload, messageId, deliveryState: "unconfirmed" }, lastError: result.needsReview ? result.error : "" });
+        await queueUpdate(m.id!, { payload: { ...m.payload, messageId, deliveryState: "unconfirmed", staleRecipient: result.needsReview === true }, lastError: result.needsReview ? result.error : "" });
         throw new Error("SMS_UNCONFIRMED");
       }
       throw new Error(result?.error || "SMS gateway fail");

@@ -20,7 +20,9 @@ export async function saveBillOffline(input: any) {
     patients: { name: patient.name || '', mobile: patient.mobile || '', address: patient.address || '' }, _pendingSync: true,
   }, crypto.randomUUID(), created_at);
   const items: any[] = [{ mutation: { table: 'billing', op: 'insert', tempId: id, payload: bill }, row: bill }];
-  const smsQueued = isValidMobile(patient.mobile || '');
+  const messaging = (window as any).electron?.messaging;
+  const smsEnabled = await messaging?.billSmsEnabled?.().catch(() => false);
+  const smsQueued = smsEnabled === true && isValidMobile(patient.mobile || '');
   if (smsQueued) {
     const messageId = crypto.randomUUID();
     const mobile = normalizeIndianMobile(patient.mobile);

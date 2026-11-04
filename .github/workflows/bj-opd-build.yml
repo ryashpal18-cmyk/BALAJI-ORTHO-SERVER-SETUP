@@ -30,6 +30,7 @@ jobs:
       - run: node tests/offline-login.cjs
       - run: node tests/clinic-profile.cjs
       - run: node tests/textbee-settings.cjs
+      - run: node tests/backup-encryption.cjs
       - run: node tests/whatsapp-cloud.cjs
       - run: node tests/pc-family-whatsapp.cjs
       - run: node tests/sms-offline.cjs

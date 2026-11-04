@@ -23,6 +23,7 @@ type SmsLog = {
   last_error?: string;
   queue_id?: number;
   unconfirmed?: boolean;
+  staleRecipient?: boolean;
 };
 
 export default function SmsLogs() {
@@ -46,7 +47,7 @@ export default function SmsLogs() {
     setBusyId(queueId);
     try {
       const entry = (await queueGetAll()).find(q => q.id === queueId && q.op === "sms");
-      if (!entry) return;
+      if (!entry || entry.payload?.staleRecipient) return;
       await recordReview(entry, "Manual resend requested — original delivery unconfirmed");
       const { deliveryState: _parked, ...payload } = entry.payload || {};
       await queueUpdate(queueId, { payload: { ...payload, messageId: crypto.randomUUID() }, retries: 0, lastError: "", lastAttemptAt: 0 });
@@ -146,7 +147,7 @@ export default function SmsLogs() {
                       <TableCell className="whitespace-nowrap">
                         {l.unconfirmed && l.queue_id !== undefined && (
                           <div className="flex gap-1">
-                            <Button size="sm" variant="outline" disabled={busyId === l.queue_id} onClick={() => void resend(l.queue_id!)}>Dobara bhejein</Button>
+                            {!l.staleRecipient && <Button size="sm" variant="outline" disabled={busyId === l.queue_id} onClick={() => void resend(l.queue_id!)}>Dobara bhejein</Button>}
                             <Button size="sm" variant="ghost" disabled={busyId === l.queue_id} onClick={() => void discard(l.queue_id!)}>Hataein</Button>
                           </div>
                         )}

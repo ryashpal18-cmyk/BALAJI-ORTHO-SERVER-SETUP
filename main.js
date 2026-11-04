@@ -1103,6 +1103,26 @@ ipcMain.handle('backup:writeJson', async (_e, { fileName, jsonString }) => {
   } catch (e) { return { success: false, error: e.message }; }
 });
 
+ipcMain.handle('backup:writeEncrypted', async (_e, { fileName, jsonString, passphrase }) => {
+  const principal = access.getPrincipal();
+  const generation = authGeneration;
+  const content = await require('./backup-encryption.cjs').encryptBackup(jsonString, passphrase);
+  if (authGeneration !== generation || access.getPrincipal() !== principal) throw new Error('Admin session changed');
+  ensureAppBackupDir();
+  const safeName = String(fileName || 'backup.bjbackup').replace(/[^a-z0-9_.-]/gi, '_');
+  if (!safeName.endsWith('.bjbackup')) throw new Error('Invalid encrypted backup file name');
+  const fullPath = path.join(APP_BACKUP_DIR, safeName);
+  atomicWriteFile(fullPath, content);
+  return { success: true, path: fullPath };
+});
+ipcMain.handle('backup:decrypt', async (_e, { envelope, passphrase }) => {
+  const principal = access.getPrincipal();
+  const generation = authGeneration;
+  const json = await require('./backup-encryption.cjs').decryptBackup(envelope, passphrase);
+  if (authGeneration !== generation || access.getPrincipal() !== principal) throw new Error('Admin session changed');
+  return json;
+});
+
 ipcMain.handle('backup:writeBinary', async (_e, { fileName, base64Data }) => {
   try {
     ensureAppBackupDir();
@@ -1117,7 +1137,7 @@ ipcMain.handle('backup:list', async () => {
   try {
     ensureAppBackupDir();
     const files = fs.readdirSync(APP_BACKUP_DIR)
-      .filter(f => f.endsWith('.json') || f.endsWith('.xlsx'))
+      .filter(f => f.endsWith('.json') || f.endsWith('.xlsx') || f.endsWith('.bjbackup'))
       .map(f => {
         const stat = fs.statSync(path.join(APP_BACKUP_DIR, f));
         return { name: f, size: stat.size, mtime: stat.mtimeMs };
@@ -1150,6 +1170,13 @@ const textbee = require('./textbee-settings.cjs').createTextbeeSettings({
 const dispatchSMS = require('./sms-outbox.cjs').createSmsSender({ store: sqliteStore, logger });
 const sendDurableSMS = ({ requestId, mobile, message }) =>
   dispatchSMS({ requestId, mobile, message, ...textbee.getGateway() });
+const billSmsEnabled = () => sqliteStore.metaGet('messaging:bill-sms-enabled') === true;
+ipcMain.handle('messaging:billSmsEnabled', billSmsEnabled);
+ipcMain.handle('messaging:setBillSmsEnabled', (_e, enabled) => {
+  if (typeof enabled !== 'boolean') throw new Error('Invalid bill SMS setting');
+  sqliteStore.metaSet('messaging:bill-sms-enabled', enabled);
+  return enabled;
+});
 ipcMain.handle('messaging:smsStatus', () => textbee.status());
 ipcMain.handle('messaging:smsConnect', (_e, input) => {
   const principal = access.getPrincipal();
@@ -1157,6 +1184,17 @@ ipcMain.handle('messaging:smsConnect', (_e, input) => {
   return textbee.connect(input, () => authGeneration === generation && access.getPrincipal() === principal);
 });
 ipcMain.handle('messaging:smsDisconnect', () => textbee.disconnect());
+let lastTestSMS = 0;
+ipcMain.handle('messaging:testSms', async (_e, mobile) => {
+  if (!/^([+]91)?[6-9]\d{9}$/.test(String(mobile))) throw new Error('अपना सही mobile number भरें।');
+  if (!textbee.getGateway()) throw new Error('पहले TextBee जोड़ें।');
+  if (Date.now() - lastTestSMS < 30000) throw new Error('अगले टेस्ट से पहले 30 सेकंड रुकें।');
+  lastTestSMS = Date.now();
+  return sendDurableSMS({
+    requestId: 'test-' + require('node:crypto').randomUUID(), mobile,
+    message: 'BJ OPD messaging setup test. No patient data.',
+  });
+});
 ipcMain.handle('app:sendSMS', (_e, { requestId } = {}) => {
   if (typeof requestId !== 'string' || !requestId) return { ok: false, error: 'SMS request ID required' };
   const job = sqliteStore.queueGetAll().find(m => m.op === 'sms' && m.payload?.messageId === requestId &&

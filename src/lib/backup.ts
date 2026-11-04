@@ -143,11 +143,11 @@ export type BackupResult = {
  * download ke through.
  */
 let activeBackup:Promise<BackupResult>|null=null;
-export function runBackupNow(label: string = "manual", onProgress?:(done:number,total:number)=>void): Promise<BackupResult> {
-  if(activeBackup)return activeBackup;
-  activeBackup=performBackupNow(label,onProgress).finally(()=>{activeBackup=null;});return activeBackup;
+export function runBackupNow(label: string = "manual", onProgress?:(done:number,total:number)=>void, passphrase?: string): Promise<BackupResult> {
+  if(activeBackup) return passphrase === undefined ? activeBackup : Promise.resolve({ok:false,mode:"electron",recordCounts:{},error:"एक backup पहले से चल रहा है।"});
+  activeBackup=performBackupNow(label,onProgress,passphrase).finally(()=>{activeBackup=null;});return activeBackup;
 }
-async function performBackupNow(label: string, onProgress?:(done:number,total:number)=>void): Promise<BackupResult> {
+async function performBackupNow(label: string, onProgress?:(done:number,total:number)=>void, passphrase?: string): Promise<BackupResult> {
   const recordCounts: Record<string, number> = {};
   const backupData: Record<string, any[]> = {};
 
@@ -193,6 +193,14 @@ async function performBackupNow(label: string, onProgress?:(done:number,total:nu
     tables: backupData,
   });
   const jsonString = JSON.stringify(fullJson, null, 2);
+  if (passphrase !== undefined) {
+    const bridge = (window as any).electron;
+    if (!bridge?.backupWriteEncrypted) throw new Error("Encrypted backup Windows EXE में उपलब्ध है।");
+    const result = await bridge.backupWriteEncrypted({ fileName: `${baseName}.bjbackup`, jsonString, passphrase });
+    if (!result?.success) throw new Error("Encrypted backup सेव नहीं हुआ।");
+    localStorage.setItem(BACKUP_STORAGE_KEYS.LAST_BACKUP_AT, now.toISOString());
+    return recordBackupResult({ ok: true, mode: "electron", jsonPath: result.path, recordCounts, warnings, ...photoResult });
+  }
 
   // Excel: ek sheet per table, taaki Dr Excel mein khol kar seedha dekh sakein.
   const wb = XLSX.utils.book_new();

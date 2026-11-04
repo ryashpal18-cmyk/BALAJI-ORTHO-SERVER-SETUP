@@ -9,6 +9,10 @@ export function readMobileServerConnection(): { url: string; key: string; name: 
   }
 }
 
+export function clearMobileServerConnection() {
+  localStorage.removeItem(storageKey);
+}
+
 export async function saveMobileServerConnection(projectUrl: string, key: string) {
   if (readMobileServerConnection()) {
     throw new Error("To change clinics, clear this app's data before connecting a new server.");

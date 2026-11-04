@@ -87,6 +87,7 @@ function authorize(channel, args, store) {
   if (channel === 'offline:commitBatch') return; // Each operation is authorized inside the atomic transaction.
   if (['auth:syncSession','auth:adoptSyncSession','auth:cloudSyncStatus'].includes(channel) && !p.localAdmin) throw new Error('Local administrator required');
   if (p.role === 'admin') return;
+  if (channel === 'messaging:billSmsEnabled') return assertTable('billing');
   if (channel === 'offline:refreshCashDays') return assertTable('cash_book_days');
   if (channel === 'offline:cacheGetAll') return assertTable(args[0]);
   if (channel === 'offline:cacheGetRow') return assertTable(args[0]?.table); // result filtered in handler

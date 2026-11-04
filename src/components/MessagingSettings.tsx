@@ -9,9 +9,12 @@ import { runSync } from "@/lib/offlineSync";
 
 type SmsStatus = { configured: boolean; deviceId: string; error: string };
 type MessagingBridge = {
+  billSmsEnabled: () => Promise<boolean>;
+  setBillSmsEnabled: (value: boolean) => Promise<boolean>;
   smsStatus: () => Promise<SmsStatus>;
   smsConnect: (input: { apiKey: string; deviceId: string }) => Promise<SmsStatus>;
   smsDisconnect: () => Promise<SmsStatus>;
+  testSms: (mobile: string) => Promise<{ok: boolean; error?: string}>;
 };
 
 export function MessagingSettings() {
@@ -20,16 +23,19 @@ export function MessagingSettings() {
   const [deviceId, setDeviceId] = useState("");
   const [apiKey, setApiKey] = useState("");
   const [busy, setBusy] = useState(false);
+  const [billSms, setBillSms] = useState(false);
+  const [testMobile, setTestMobile] = useState("");
   const [notice, setNotice] = useState("");
   const [error, setError] = useState("");
 
   useEffect(() => {
     if (!bridge) return;
     let active = true;
-    bridge.smsStatus().then(result => {
+    Promise.all([bridge.smsStatus(), bridge.billSmsEnabled()]).then(([result, enabled]) => {
       if (!active) return;
       setStatus(result);
       setDeviceId(result.deviceId);
+      setBillSms(enabled);
     }).catch(() => { if (active) setError("SMS सेटिंग पढ़ी नहीं जा सकी।"); });
     return () => { active = false; };
   }, [bridge]);
@@ -70,6 +76,29 @@ export function MessagingSettings() {
     }
   }
 
+  async function changeBillSms(enabled: boolean) {
+    if (!bridge || busy) return;
+    setBusy(true);
+    setError("");
+    try { setBillSms(await bridge.setBillSmsEnabled(enabled)); }
+    catch { setError("बिल SMS सेटिंग सेव नहीं हुई।"); }
+    finally { setBusy(false); }
+  }
+
+  async function testSms() {
+    if (!bridge || busy || !window.confirm("अपने नंबर पर एक असली test SMS भेजें?")) return;
+    setBusy(true);
+    setError("");
+    setNotice("");
+    try {
+      const result = await bridge.testSms(testMobile.trim());
+      if (!result.ok) throw new Error(result.error || "Gateway ने SMS स्वीकार नहीं किया।");
+      setNotice("Gateway ने टेस्ट SMS स्वीकार किया। अपने फोन पर संदेश जाँचें।");
+    } catch (failure) {
+      setError(failure instanceof Error ? failure.message : "Test SMS failed.");
+    } finally { setBusy(false); }
+  }
+
   if (!bridge) return <p>SMS और WhatsApp gateway सेटअप BJ OPD Windows EXE में उपलब्ध है।</p>;
 
   return (
@@ -97,6 +126,17 @@ export function MessagingSettings() {
             </div>
             <p className="text-xs text-muted-foreground">कनेक्शन सेव होने के बाद pending SMS सामान्य नियमों के अनुसार भेजे जाएँगे। अनिश्चित delivery वाले SMS समीक्षा में रहेंगे।</p>
           </form>
+          <label className="mt-3 flex items-center gap-2 text-sm">
+            <input type="checkbox" checked={billSms} disabled={busy || !status}
+              onChange={event => void changeBillSms(event.target.checked)} />
+            नए बिल का SMS अपने आप queue करें
+          </label>
+          {status?.configured && <div className="mt-3 space-y-2">
+            <Label htmlFor="textbee-test-number">अपना मोबाइल नंबर</Label>
+            <Input id="textbee-test-number" type="tel" maxLength={13} value={testMobile}
+              onChange={event => setTestMobile(event.target.value)} />
+            <Button variant="outline" disabled={busy || !testMobile.trim()} onClick={() => void testSms()}>Test SMS भेजें</Button>
+          </div>}
         </CardContent>
       </Card>
       <WhatsAppApiSettings />

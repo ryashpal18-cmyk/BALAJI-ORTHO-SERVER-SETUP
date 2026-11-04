@@ -6,9 +6,12 @@ contextBridge.exposeInMainWorld('electron', {
   server: { publicConfig: () => ipcRenderer.sendSync('server:publicConfig'), check: input => ipcRenderer.invoke('server:check', input), provision: input => ipcRenderer.invoke('server:provision', input), connect: input => ipcRenderer.invoke('server:connect', input), restart: () => ipcRenderer.invoke('server:restart') },
 
   messaging: {
+    billSmsEnabled: () => ipcRenderer.invoke('messaging:billSmsEnabled'),
+    setBillSmsEnabled: enabled => ipcRenderer.invoke('messaging:setBillSmsEnabled', enabled),
     smsStatus: () => ipcRenderer.invoke('messaging:smsStatus'),
     smsConnect: input => ipcRenderer.invoke('messaging:smsConnect', input),
     smsDisconnect: () => ipcRenderer.invoke('messaging:smsDisconnect'),
+    testSms: mobile => ipcRenderer.invoke('messaging:testSms', mobile),
   },
 
   family: {list: () => ipcRenderer.invoke('family:list'), profile: id => ipcRenderer.invoke('family:profile', id)},
@@ -154,6 +157,8 @@ contextBridge.exposeInMainWorld('electron', {
 
   // ── Backup ─────────────────────────────────────────────────
   backupGetDir:       ()      => ipcRenderer.invoke('backup:getDir'),
+  backupWriteEncrypted: data => ipcRenderer.invoke('backup:writeEncrypted', data),
+  backupDecrypt: data => ipcRenderer.invoke('backup:decrypt', data),
   backupWriteJson:    (data)  => ipcRenderer.invoke('backup:writeJson', data),
   backupWriteBinary:  (data)  => ipcRenderer.invoke('backup:writeBinary', data),
   backupList:         ()      => ipcRenderer.invoke('backup:list'),

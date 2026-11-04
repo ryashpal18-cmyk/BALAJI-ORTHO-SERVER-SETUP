@@ -1,5 +1,5 @@
 import { queryClient } from "@/lib/queryClient";
-import { saveClinicProfile } from "@/lib/clinicProfile";
+import { CLINIC_PROFILE_KEY, saveClinicProfile } from "@/lib/clinicProfile";
 import { migrateLegacyIndexedDbIfNeeded } from "@/lib/offlineDb";
 import { startAutoSync } from "@/lib/offlineSync";
 import { startAutoBackupScheduler } from "@/lib/backup";
@@ -8,6 +8,7 @@ import { Eye, EyeOff, User, Lock, LogIn } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useToast } from "@/hooks/use-toast";
 import { serverConnection, supabase } from "@/integrations/supabase/client";
+import { clearMobileServerConnection } from "@/lib/mobileServerConnection";
 import { MobileServerSetup } from "@/components/MobileServerSetup";
 import "./login.css";
 
@@ -128,6 +129,21 @@ export default function Login() {
       setLoading(false);
     }
   };
+  async function changeMobileServer() {
+    if (desktop || loading || !window.confirm("इस फोन से मौजूदा clinic connection हटाएँ? Server के रिकॉर्ड सुरक्षित रहेंगे।")) return;
+    setLoading(true);
+    try {
+      const { error } = await supabase.auth.signOut({ scope: "local" });
+      if (error) throw error;
+      clearMobileServerConnection();
+      localStorage.removeItem(CLINIC_PROFILE_KEY);
+      localStorage.removeItem("bocc_selected_branch");
+      window.location.reload();
+    } catch {
+      setSetupError("पुराना login बंद नहीं हुआ। इंटरनेट जाँचकर फिर कोशिश करें।");
+    } finally { setLoading(false); }
+  }
+
   const saveFirstPassword = async (event: React.FormEvent) => {
     event.preventDefault();
     setLoading(true);
@@ -208,6 +224,8 @@ export default function Login() {
 
             {!desktop && <p className="mb-3 text-sm text-muted-foreground">मोबाइल companion के लिए इंटरनेट और clinic server ज़रूरी हैं। Offline billing और messaging setup Windows EXE में करें।</p>}
             {!desktop && !serverConnection.url && <MobileServerSetup />}
+            {!desktop && serverConnection.url && <button type="button" disabled={loading}
+              className="mb-3 text-sm text-blue-700 underline" onClick={() => void changeMobileServer()}>Clinic server बदलें</button>}
             {changeToken ? (
               <form onSubmit={saveFirstPassword} style={{ display: "grid", gap: 12 }}>
                 <strong>First login: Apni ID aur password set karein</strong>

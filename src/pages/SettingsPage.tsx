@@ -101,6 +101,7 @@ export default function SettingsPage() {
 
   // ── Backup ──
   const [backupRunning, setBackupRunning] = useState(false);
+  const [backupPassphrase, setBackupPassphrase] = useState("");
   const [backupProgress,setBackupProgress]=useState("");
   const [lastBackupAt, setLastBackupAt]   = useState<string | null>(getLastBackupAt());
   const [dailyOn,      setDailyOn]        = useState(isDailyBackupEnabled());
@@ -247,13 +248,14 @@ export default function SettingsPage() {
     setBackupFiles(files);
   };
 
-  const handleBackupNow = async () => {
+  const handleBackupNow = async (passphrase?: string) => {
     setBackupRunning(true);
     setBackupProgress("रिकॉर्ड तैयार हो रहे हैं…");
-    const res = await runBackupNow("manual",(done,total)=>setBackupProgress(`फोटो/फाइल: ${done} / ${total}`)).catch((error: any) => ({ ok: false, error: error.message, recordCounts: {}, warnings: [] } as any));
+    const res = await runBackupNow("manual",(done,total)=>setBackupProgress(`फोटो/फाइल: ${done} / ${total}`),passphrase).catch((error: any) => ({ ok: false, error: error.message, recordCounts: {}, warnings: [] } as any));
     setBackupRunning(false);
     if (res.ok && res.warnings?.length) toast({ title: "Backup saved with coverage notes", description: `${res.warnings.length} coverage notes हैं। फोटो/फाइल missing हों तो बैकअप आंशिक है। JSON में विवरण देखें।` });
     if (res.ok) {
+      if (passphrase !== undefined) setBackupPassphrase("");
       setLastBackupAt(getLastBackupAt());
       await refreshBackupInfo();
       const totalRecords = Object.values(res.recordCounts as Record<string, number>).reduce((a, b) => a + b, 0);
@@ -452,6 +454,21 @@ export default function SettingsPage() {
           </p>
         </div>
 
+        {isAdmin && isElectron && <Card className="mb-4">
+          <CardHeader><CardTitle>Clinic Setup</CardTitle></CardHeader>
+          <CardContent className="space-y-2 text-sm">
+            <p>1. अपना Admin ID और password नीचे बदलें, यदि पहली बार setup कर रहे हैं।</p>
+            <p>2. Clinic Info में क्लिनिक का नाम, डॉक्टर, पता और फोन सेव करें।</p>
+            <p>3. Billing शुरू करने के लिए Branches में अपनी पहली branch बनाएँ।</p>
+            <p>4. Encrypted backup बनाएँ। जरूरत के अनुसार Server और Messaging जोड़ें।</p>
+            <div className="flex flex-wrap gap-2">
+              <Button size="sm" variant="outline" onClick={() => setTab("clinic")}>Clinic Info</Button>
+              <Button size="sm" variant="outline" onClick={() => navigate("/branches")}>Branches</Button>
+              <Button size="sm" variant="outline" onClick={() => setTab("backup")}>Backup</Button>
+              <Button size="sm" variant="outline" onClick={() => setTab("messaging")}>Messaging</Button>
+            </div>
+          </CardContent>
+        </Card>}
         {isAdmin && !!(window as any).electron?.changeOfflineCredentials && (
           <Card className="dash-card" style={{ marginBottom: 16 }}>
             <CardHeader><CardTitle>Admin Login ID / Password बदलें</CardTitle></CardHeader>
@@ -997,7 +1014,7 @@ export default function SettingsPage() {
 
                 {/* Manual backup button */}
                 <Button
-                  onClick={handleBackupNow}
+                  onClick={() => void handleBackupNow()}
                   disabled={backupRunning}
                   style={{ width: "fit-content", gap: "8px" }}
                 >
@@ -1006,21 +1023,35 @@ export default function SettingsPage() {
                   ) : (
                     <HardDriveDownload style={{ width: "14px", height: "14px" }} />
                   )}
-                  {backupRunning ? "Backup ho raha hai..." : "फोटो सहित पूरा Backup"}
+                  {backupRunning ? "Backup ho raha hai..." : "Plain JSON + Excel Export"}
                 </Button>
 
+                {isElectron && <div className="space-y-2 rounded border p-3">
+                  <Label htmlFor="backup-passphrase">Encrypted backup / restore password</Label>
+                  <Input id="backup-passphrase" type="password" autoComplete="new-password" maxLength={256}
+                    value={backupPassphrase} onChange={event => setBackupPassphrase(event.target.value)} />
+                  <p className="text-xs text-muted-foreground">कम से कम 12 अक्षर रखें और पासवर्ड अलग सुरक्षित जगह लिखें। दूसरे PC पर restore के लिए यही पासवर्ड चाहिए।</p>
+                  <Button disabled={backupRunning || backupPassphrase.trim().length < 12}
+                    onClick={() => void handleBackupNow(backupPassphrase)}>Encrypted Backup (.bjbackup)</Button>
+                </div>}
                 {backupProgress&&<p role="status" className="text-sm">{backupProgress}{backupRunning?"":" — जाँच पूरी"}</p>}
                 <div className="my-4 border rounded p-3">
-                  <p>Restore JSON (केवल खाली नए/test database पर; existing data overwrite नहीं होगा)</p>
-                  <Input type="file" accept=".json" onChange={async e => {
+                  <p>Restore JSON या .bjbackup (केवल खाली नए database पर)</p>
+                  <Input type="file" accept=".json,.bjbackup" onChange={async e => {
                     const file = e.target.files?.[0]; if (!file) return;
                     try {
-                      const json = await file.text(), info = inspectBackup(json);
+                      const raw = await file.text();
+                      const bridge = (window as any).electron;
+                      if (file.name.endsWith(".bjbackup") && !bridge?.backupDecrypt) throw new Error("Encrypted restore Windows EXE में उपलब्ध है।");
+                      const json = file.name.endsWith(".bjbackup")
+                        ? await bridge.backupDecrypt({ envelope: raw, passphrase: backupPassphrase })
+                        : raw;
+                      const info = inspectBackup(json);
                       if (!window.confirm(`बैकअप में ${info.records} रिकॉर्ड, ${info.attachments} फोटो/PDF, ${info.missingAttachments} missing फाइल और ${info.pending} pending काम हैं। ${info.warnings.length} coverage चेतावनियाँ हैं। केवल खाली डिवाइस पर restore करें। पुराने outgoing संदेश जाँच के लिए रोके जाएँगे। आगे बढ़ें?`)) return;
-                      await restoreBackup(json); toast({ title: "Backup restored. Restart app." });
+                      await restoreBackup(json); setBackupPassphrase(""); toast({ title: "Backup restored. Restart app." });
                     }
                     catch (error: any) { toast({ title: "Restore failed", description: error.message, variant: "destructive" }); }
-                    e.target.value = "";
+                    finally { e.target.value = ""; }
                   }} />
                 </div>
                 {getBackupStatus().at && <div className="rounded border p-3 text-sm" role="status">

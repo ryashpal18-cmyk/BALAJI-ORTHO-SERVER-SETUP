@@ -33,6 +33,7 @@ files:
   - diagnostic-utils.cjs
   - logger.cjs
   - sqlite-store.cjs
+  - backup-encryption.cjs
   - sms-outbox.cjs
   - textbee-settings.cjs
   - access-control.cjs
