@@ -111,6 +111,9 @@ export async function restoreBackup(json: string) {
   const parsed = JSON.parse(json);
   const project = serverConnection?.url;
   if (parsed.project && parsed.project !== project) throw new Error("यह backup किसी दूसरे server का है। सही clinic server जोड़ें।");
+  if (!parsed.project && project && parsed.localSnapshot.queue.length) {
+    throw new Error("इस backup की server पहचान उपलब्ध नहीं है और इसमें pending बदलाव हैं। पहले इसे बिना server वाले खाली recovery PC पर खोलें।");
+  }
   const currentData = await getLocalSnapshot();
   if (currentData.queue.length || Object.entries(currentData.cache).some(([table, rows]) => !["branches", "profiles", "user_roles"].includes(table) && (rows as any[]).length))
     throw new Error("Restore केवल खाली नए डिवाइस पर करें। मौजूदा मरीज और pending डेटा सुरक्षित है।");
@@ -144,7 +147,7 @@ export type BackupResult = {
  */
 let activeBackup:Promise<BackupResult>|null=null;
 export function runBackupNow(label: string = "manual", onProgress?:(done:number,total:number)=>void, passphrase?: string): Promise<BackupResult> {
-  if(activeBackup) return passphrase === undefined ? activeBackup : Promise.resolve({ok:false,mode:"electron",recordCounts:{},error:"एक backup पहले से चल रहा है।"});
+  if(activeBackup) return passphrase === undefined && label !== "daily" && label !== "weekly" ? activeBackup : Promise.resolve({ok:false,mode:"electron",recordCounts:{},error:"एक backup पहले से चल रहा है।"});
   activeBackup=performBackupNow(label,onProgress,passphrase).finally(()=>{activeBackup=null;});return activeBackup;
 }
 async function performBackupNow(label: string, onProgress?:(done:number,total:number)=>void, passphrase?: string): Promise<BackupResult> {
@@ -193,10 +196,11 @@ async function performBackupNow(label: string, onProgress?:(done:number,total:nu
     tables: backupData,
   });
   const jsonString = JSON.stringify(fullJson, null, 2);
-  if (passphrase !== undefined) {
+  const automatic = label === "daily" || label === "weekly";
+  if (passphrase !== undefined || automatic) {
     const bridge = (window as any).electron;
     if (!bridge?.backupWriteEncrypted) throw new Error("Encrypted backup Windows EXE में उपलब्ध है।");
-    const result = await bridge.backupWriteEncrypted({ fileName: `${baseName}.bjbackup`, jsonString, passphrase });
+    const result = await bridge.backupWriteEncrypted({ fileName: `${baseName}.bjbackup`, jsonString, passphrase, automatic });
     if (!result?.success) throw new Error("Encrypted backup सेव नहीं हुआ।");
     localStorage.setItem(BACKUP_STORAGE_KEYS.LAST_BACKUP_AT, now.toISOString());
     return recordBackupResult({ ok: true, mode: "electron", jsonPath: result.path, recordCounts, warnings, ...photoResult });
@@ -306,8 +310,10 @@ export function startAutoBackupScheduler() {
   schedulerStarted = true;
 
   const checkAndRun = async () => {
-    const auth = await (window as any).electron?.checkAuth?.();
-    if (auth && (!auth.valid || auth.principal?.role !== "admin")) return;
+    const bridge = (window as any).electron;
+    if (!bridge?.backupWriteEncrypted || !bridge.checkAuth) return;
+    const auth = await bridge.checkAuth();
+    if (!auth?.valid || auth.principal?.role !== "admin") return;
 
     const today = todayStr();
 

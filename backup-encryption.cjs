@@ -50,4 +50,4 @@ async function decryptBackup(envelope, passphrase) {
   finally { key.fill(0); }
 }
 
-module.exports = { encryptBackup, decryptBackup };
+module.exports = { encryptBackup, decryptBackup, validatePassphrase };

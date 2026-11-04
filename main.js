@@ -1103,7 +1103,24 @@ ipcMain.handle('backup:writeJson', async (_e, { fileName, jsonString }) => {
   } catch (e) { return { success: false, error: e.message }; }
 });
 
-ipcMain.handle('backup:writeEncrypted', async (_e, { fileName, jsonString, passphrase }) => {
+const autoBackupSecretPath = path.join(SERVER_DATA_DIR, 'automatic-backup.enc');
+ipcMain.handle('backup:setAutomaticPassword', (_e, passphrase) => {
+  require('./backup-encryption.cjs').validatePassphrase(passphrase);
+  if (!safeStorage.isEncryptionAvailable() || safeStorage.getSelectedStorageBackend?.() === 'basic_text') {
+    throw new Error('इस डिवाइस का सुरक्षित password storage उपलब्ध नहीं है।');
+  }
+  atomicWriteFile(autoBackupSecretPath, safeStorage.encryptString(passphrase));
+  return true;
+});
+ipcMain.handle('backup:writeEncrypted', async (_e, { fileName, jsonString, passphrase, automatic }) => {
+  if (automatic === true) {
+    if (!fs.existsSync(autoBackupSecretPath)) throw new Error('Settings → Backup में Automatic Backup Password सेट करें।');
+    if (!safeStorage.isEncryptionAvailable() || safeStorage.getSelectedStorageBackend?.() === 'basic_text') {
+      throw new Error('Automatic backup password storage उपलब्ध नहीं है।');
+    }
+    try { passphrase = safeStorage.decryptString(fs.readFileSync(autoBackupSecretPath)); }
+    catch { throw new Error('Automatic backup password पढ़ा नहीं गया। Settings में फिर से सेट करें।'); }
+  }
   const principal = access.getPrincipal();
   const generation = authGeneration;
   const content = await require('./backup-encryption.cjs').encryptBackup(jsonString, passphrase);

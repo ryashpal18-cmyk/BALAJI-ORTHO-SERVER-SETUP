@@ -274,6 +274,17 @@ export default function SettingsPage() {
     }
   };
 
+  const saveAutomaticBackupPassword = async () => {
+    const bridge = (window as any).electron;
+    try {
+      if (!await bridge?.backupSetAutomaticPassword?.(backupPassphrase)) throw new Error("Windows secure storage उपलब्ध नहीं है।");
+      setBackupPassphrase("");
+      toast({ title: "Automatic Backup Password सेव हुआ", description: "Daily या Weekly toggle चालू रखें। Restore के लिए पासवर्ड अपने पास सुरक्षित रखें।" });
+    } catch (error: any) {
+      toast({ title: "Automatic backup password सेव नहीं हुआ", description: error.message, variant: "destructive" });
+    }
+  };
+
   const handleToggleDaily = () => {
     const next = !dailyOn;
     setDailyOn(next);
@@ -1033,6 +1044,8 @@ export default function SettingsPage() {
                   <p className="text-xs text-muted-foreground">कम से कम 12 अक्षर रखें और पासवर्ड अलग सुरक्षित जगह लिखें। दूसरे PC पर restore के लिए यही पासवर्ड चाहिए।</p>
                   <Button disabled={backupRunning || backupPassphrase.trim().length < 12}
                     onClick={() => void handleBackupNow(backupPassphrase)}>Encrypted Backup (.bjbackup)</Button>
+                  <Button className="ml-2" variant="outline" disabled={backupRunning || backupPassphrase.trim().length < 12}
+                    onClick={() => void saveAutomaticBackupPassword()}>Automatic Backup Password सेव करें</Button>
                 </div>}
                 {backupProgress&&<p role="status" className="text-sm">{backupProgress}{backupRunning?"":" — जाँच पूरी"}</p>}
                 <div className="my-4 border rounded p-3">
