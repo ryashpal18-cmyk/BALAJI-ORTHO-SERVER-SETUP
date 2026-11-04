@@ -437,6 +437,13 @@ export default function SettingsPage() {
                 <Input required type="password" value={currentAdminPassword} onChange={e => setCurrentAdminPassword(e.target.value)} autoComplete="current-password" />
                 <Label>New Login ID</Label>
                 <Input required value={newAdminId} onChange={e => setNewAdminId(e.target.value)} />
+                <Label>New Password (minimum 8 characters)</Label>
+                <Input required minLength={8} type="password" value={newAdminPassword} onChange={e => setNewAdminPassword(e.target.value)} autoComplete="new-password" />
+                <Label>Confirm New Password</Label>
+                <Input required minLength={8} type="password" value={confirmAdminPassword} onChange={e => setConfirmAdminPassword(e.target.value)} autoComplete="new-password" />
+                <Button type="submit" disabled={changingAdminLogin || newAdminPassword !== confirmAdminPassword}>
+                  {changingAdminLogin ? "Saving..." : "Save New Login"}
+                </Button>
               </form>
             </CardContent>
           </Card>
