@@ -1,9 +1,10 @@
-export function invoiceNumber(id: string) {
+export function invoiceNumber(id: string, savedNumber?: string | null) {
+  if (savedNumber) return savedNumber;
   return `INV-${String(id).replace(/^local_/, '').toUpperCase()}`;
 }
-export function legacyInvoiceNumbers(id: string) {
+export function legacyInvoiceNumbers(id: string, savedNumber?: string | null) {
   const real = id.replace(/^local_/, '');
-  return [invoiceNumber(id), `INV-${real.slice(0,8).toUpperCase()}`, `INV-${('local_' + real).slice(0,8).toUpperCase()}`];
+  return [...new Set([invoiceNumber(id, savedNumber), invoiceNumber(id), `INV-${real.slice(0,8).toUpperCase()}`, `INV-${('local_' + real).slice(0,8).toUpperCase()}`])];
 }
 
 /** Same invoice identity before and after an offline bill is synchronized. */

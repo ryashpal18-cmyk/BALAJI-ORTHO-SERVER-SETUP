@@ -1,6 +1,6 @@
 /**
  * ╔══════════════════════════════════════════════════════════════════╗
- * ║   BALAJI ORTHO CONNECT — Electron Main Process                  ║
+ * ║   BJ OPD SERVER SETUP — Electron Main Process                  ║
  * ║   Offline-First | Auto Seed DB | Cloud Sync | IPC Bridge        ║
  * ╚══════════════════════════════════════════════════════════════════╝
  */
@@ -162,8 +162,6 @@ const FRACTURE_FILE = path.join(BACKUP_DIR, 'fractures.json');
 const XRAYS_DIR     = path.join(BACKUP_DIR, 'xray_images');
 const AUTH_FILE     = path.join(BACKUP_DIR, 'auth.json');
 
-const SEED_FILE = path.join(__dirname, 'public', 'patients_seed.json');
-
 // Naya, clean backup system — purane hardcoded C:\ path se alag, taaki legacy
 // system se collide na ho. app.getPath('documents') Windows/Mac/Linux teeno
 // par sahi user-writable folder deta hai.
@@ -187,16 +185,6 @@ function ensureDirs() {
   [BACKUP_DIR, XRAYS_DIR].forEach(d => {
     if (!fs.existsSync(d)) fs.mkdirSync(d, { recursive: true });
   });
-}
-
-// ─── SEED DATABASE ON FIRST RUN ───────────────────────────────────────────────
-function seedPatientsOnFirstRun() {
-  if (fs.existsSync(PATIENTS_FILE)) return;
-  if (fs.existsSync(SEED_FILE)) {
-    fs.copyFileSync(SEED_FILE, PATIENTS_FILE);
-  } else {
-    fs.writeFileSync(PATIENTS_FILE, JSON.stringify([], null, 2));
-  }
 }
 
 // ─── JSON HELPERS ─────────────────────────────────────────────────────────────
@@ -293,14 +281,15 @@ function atomicWriteFile(fullPath, data) {
 
 // ─── INIT ALL JSON FILES ──────────────────────────────────────────────────────
 function initFiles() {
+  if (!fs.existsSync(PATIENTS_FILE)) writeJSON(PATIENTS_FILE, []);
   if (!fs.existsSync(BILLS_FILE))    writeJSON(BILLS_FILE,    []);
   if (!fs.existsSync(REPORTS_FILE))  writeJSON(REPORTS_FILE,  []);
   if (!fs.existsSync(XRAYS_FILE))    writeJSON(XRAYS_FILE,    []);
   if (!fs.existsSync(PENDING_FILE))  writeJSON(PENDING_FILE,  []);
   if (!fs.existsSync(FRACTURE_FILE)) writeJSON(FRACTURE_FILE, []);
   if (!fs.existsSync(SETTINGS_FILE)) writeJSON(SETTINGS_FILE, {
-    centerName:  'Balaji Ortho Care Center',
-    doctorName:  'Dr. S. S. Rathore',
+    centerName:  '',
+    doctorName:  '',
     supabaseUrl: authPublicConfig.url,
     supabaseKey: authPublicConfig.key,
     autoSync:    true
@@ -664,7 +653,7 @@ function openWhatsAppWindow(url) {
     height: 800,
     minWidth: 900,
     minHeight: 600,
-    title: 'WhatsApp Web — Balaji Ortho Care',
+    title: 'WhatsApp Web — BJ OPD',
     icon: path.join(__dirname, 'dist', 'bj-opd-icon.png'),
     webPreferences: {
       nodeIntegration:  false,
@@ -1114,6 +1103,43 @@ ipcMain.handle('backup:writeJson', async (_e, { fileName, jsonString }) => {
   } catch (e) { return { success: false, error: e.message }; }
 });
 
+const autoBackupSecretPath = path.join(SERVER_DATA_DIR, 'automatic-backup.enc');
+ipcMain.handle('backup:setAutomaticPassword', (_e, passphrase) => {
+  require('./backup-encryption.cjs').validatePassphrase(passphrase);
+  if (!safeStorage.isEncryptionAvailable() || safeStorage.getSelectedStorageBackend?.() === 'basic_text') {
+    throw new Error('इस डिवाइस का सुरक्षित password storage उपलब्ध नहीं है।');
+  }
+  atomicWriteFile(autoBackupSecretPath, safeStorage.encryptString(passphrase));
+  return true;
+});
+ipcMain.handle('backup:writeEncrypted', async (_e, { fileName, jsonString, passphrase, automatic }) => {
+  if (automatic === true) {
+    if (!fs.existsSync(autoBackupSecretPath)) throw new Error('Settings → Backup में Automatic Backup Password सेट करें।');
+    if (!safeStorage.isEncryptionAvailable() || safeStorage.getSelectedStorageBackend?.() === 'basic_text') {
+      throw new Error('Automatic backup password storage उपलब्ध नहीं है।');
+    }
+    try { passphrase = safeStorage.decryptString(fs.readFileSync(autoBackupSecretPath)); }
+    catch { throw new Error('Automatic backup password पढ़ा नहीं गया। Settings में फिर से सेट करें।'); }
+  }
+  const principal = access.getPrincipal();
+  const generation = authGeneration;
+  const content = await require('./backup-encryption.cjs').encryptBackup(jsonString, passphrase);
+  if (authGeneration !== generation || access.getPrincipal() !== principal) throw new Error('Admin session changed');
+  ensureAppBackupDir();
+  const safeName = String(fileName || 'backup.bjbackup').replace(/[^a-z0-9_.-]/gi, '_');
+  if (!safeName.endsWith('.bjbackup')) throw new Error('Invalid encrypted backup file name');
+  const fullPath = path.join(APP_BACKUP_DIR, safeName);
+  atomicWriteFile(fullPath, content);
+  return { success: true, path: fullPath };
+});
+ipcMain.handle('backup:decrypt', async (_e, { envelope, passphrase }) => {
+  const principal = access.getPrincipal();
+  const generation = authGeneration;
+  const json = await require('./backup-encryption.cjs').decryptBackup(envelope, passphrase);
+  if (authGeneration !== generation || access.getPrincipal() !== principal) throw new Error('Admin session changed');
+  return json;
+});
+
 ipcMain.handle('backup:writeBinary', async (_e, { fileName, base64Data }) => {
   try {
     ensureAppBackupDir();
@@ -1128,7 +1154,7 @@ ipcMain.handle('backup:list', async () => {
   try {
     ensureAppBackupDir();
     const files = fs.readdirSync(APP_BACKUP_DIR)
-      .filter(f => f.endsWith('.json') || f.endsWith('.xlsx'))
+      .filter(f => f.endsWith('.json') || f.endsWith('.xlsx') || f.endsWith('.bjbackup'))
       .map(f => {
         const stat = fs.statSync(path.join(APP_BACKUP_DIR, f));
         return { name: f, size: stat.size, mtime: stat.mtimeMs };
@@ -1155,8 +1181,55 @@ ipcMain.on('open-whatsapp', (_e, payload) => {
 });
 
 // ─── SMS — Main process se bhejo (CORS issue fix) ────────────────────────────
-const sendDurableSMS = require('./sms-outbox.cjs').createSmsSender({ store: sqliteStore, logger });
-ipcMain.handle('app:sendSMS', async (_e, input) => sendDurableSMS(input));
+const textbee = require('./textbee-settings.cjs').createTextbeeSettings({
+  file: path.join(SERVER_DATA_DIR, 'textbee-settings.enc'), safeStorage,
+});
+const dispatchSMS = require('./sms-outbox.cjs').createSmsSender({ store: sqliteStore, logger });
+const sendDurableSMS = ({ requestId, mobile, message }) =>
+  dispatchSMS({ requestId, mobile, message, ...textbee.getGateway() });
+const billSmsEnabled = () => sqliteStore.metaGet('messaging:bill-sms-enabled') === true;
+ipcMain.handle('messaging:billSmsEnabled', billSmsEnabled);
+ipcMain.handle('messaging:setBillSmsEnabled', (_e, enabled) => {
+  if (typeof enabled !== 'boolean') throw new Error('Invalid bill SMS setting');
+  sqliteStore.metaSet('messaging:bill-sms-enabled', enabled);
+  return enabled;
+});
+ipcMain.handle('messaging:smsStatus', () => textbee.status());
+ipcMain.handle('messaging:smsConnect', (_e, input) => {
+  const principal = access.getPrincipal();
+  const generation = authGeneration;
+  return textbee.connect(input, () => authGeneration === generation && access.getPrincipal() === principal);
+});
+ipcMain.handle('messaging:smsDisconnect', () => textbee.disconnect());
+let lastTestSMS = 0;
+ipcMain.handle('messaging:testSms', async (_e, mobile) => {
+  if (!/^([+]91)?[6-9]\d{9}$/.test(String(mobile))) throw new Error('अपना सही mobile number भरें।');
+  if (!textbee.getGateway()) throw new Error('पहले TextBee जोड़ें।');
+  if (Date.now() - lastTestSMS < 30000) throw new Error('अगले टेस्ट से पहले 30 सेकंड रुकें।');
+  lastTestSMS = Date.now();
+  return sendDurableSMS({
+    requestId: 'test-' + require('node:crypto').randomUUID(), mobile,
+    message: 'BJ OPD messaging setup test. No patient data.',
+  });
+});
+ipcMain.handle('app:sendSMS', (_e, { requestId } = {}) => {
+  if (typeof requestId !== 'string' || !requestId) return { ok: false, error: 'SMS request ID required' };
+  const job = sqliteStore.queueGetAll().find(m => m.op === 'sms' && m.payload?.messageId === requestId &&
+    m.payload.deliveryState !== 'unconfirmed' && access.canMutation(m, sqliteStore));
+  if (!job) return { ok: false, error: 'Authorized queued SMS required' };
+  if (job.payload.billing_id) {
+    const { familyNumber, normId } = require('./family-profile.cjs');
+    const findRecord = (table, id) => sqliteStore.cacheGetRow(table, id) ||
+      sqliteStore.cacheGetRow(table, normId(id)) || sqliteStore.cacheGetRow(table, 'local_' + normId(id));
+    const bill = findRecord('billing', job.payload.billing_id);
+    const patient = bill && findRecord('patients', bill.patient_id);
+    if (!bill || /^(cancelled|canceled|void|deleted)$/i.test(bill.status) ||
+        !patient || familyNumber(patient.mobile) !== familyNumber(job.payload.mobile)) {
+      return { ok: false, needsReview: true, error: 'Bill या मरीज का नंबर बदल गया। पुराना SMS रोक दिया गया।' };
+    }
+  }
+  return sendDurableSMS({ requestId, mobile: job.payload.mobile, message: job.payload.message });
+});
 
 // Diagnostic checks only read clinical data. Reports are separate, local files.
 let diagnosticService;
@@ -1345,7 +1418,10 @@ app.whenReady().then(() => {
   } catch (e) {
     logger.logError('app-lifecycle', `SQLite offline store init fail: ${e.message}`);
   }
-  try {require('./pc-messaging.cjs').registerPcMessaging({app,BrowserWindow,ipcMain,dialog,shell,store:sqliteStore,access,sendSMS:sendDurableSMS,logger});}
+  const whatsappCloud = require('./whatsapp-cloud.cjs').createWhatsAppCloud({
+    file: path.join(SERVER_DATA_DIR, 'whatsapp-cloud.enc'), safeStorage,
+  });
+  try {require('./pc-messaging.cjs').registerPcMessaging({app,BrowserWindow,ipcMain,dialog,shell,store:sqliteStore,access,sendSMS:sendDurableSMS,getSmsGateway:textbee.getGateway,whatsappCloud,authEpoch:()=>authGeneration,logger});}
   catch(error){logger.logError('whatsapp','Messaging setup unavailable: '+error.message);}
   const attachmentCache=require('./attachment-cache.cjs').createAttachmentCache({cacheRoot:path.join(app.getPath('userData'),'clinical-photo-cache'),localRoots:[XRAYS_DIR,path.join(app.getPath('userData'),'clinical-files')],cloudOrigin:authPublicConfig.url ? new URL(authPublicConfig.url).origin : 'https://unconfigured.invalid'});
   ipcMain.handle('attachment:read',(_e,source)=>{if(access.getPrincipal()?.role!=='admin')throw Error('Administrator login required');return attachmentCache.read(source);});

@@ -87,7 +87,6 @@ import Inventory from "./pages/Inventory";
 import AuditLog from "./pages/AuditLog";
 import InsuranceClaims from "./pages/InsuranceClaims";
 import Branches from "./pages/Branches";
-import BookAppointment from "./pages/BookAppointment";
 import BookingRequests from "./pages/BookingRequests";
 import Login from "./pages/Login";
 import NotFound from "./pages/NotFound";
@@ -155,7 +154,6 @@ const App = () => {
                 <Routes>
                   <Route path="/" element={<Login />} />
                   <Route path="/login" element={<Login />} />
-                  <Route path="/book-appointment" element={<BookAppointment />} />
                   <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
                   <Route path="/opd" element={<ProtectedRoute><OPD /></ProtectedRoute>} />
                   <Route path="/patient-search" element={<ProtectedRoute><PatientSearch /></ProtectedRoute>} />

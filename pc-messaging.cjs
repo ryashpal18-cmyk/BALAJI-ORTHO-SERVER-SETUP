@@ -3,19 +3,21 @@ const path=require('path'),fs=require('fs');
 const {createMessagingLog}=require('./messaging-log.cjs');
 const clinicProfile=require('./clinic-profile.cjs');
 const {parseFamilyLink,familyGroups,familyRecords}=require('./family-profile.cjs');
-function registerPcMessaging({app,BrowserWindow,ipcMain,dialog,shell,store,access,sendSMS,logger}) {
+function registerPcMessaging({app,BrowserWindow,ipcMain,dialog,shell,store,access,sendSMS,getSmsGateway,whatsappCloud,authEpoch,logger}) {
   const report=createMessagingLog(logger,'messaging-worker');
   let pending=null;
   const accept=args=>{for(const arg of args||[]){const id=parseFamilyLink(arg);if(id)pending=id;}};
   accept(process.argv);
   app.on('second-instance',(_e,args)=>accept(args));
   app.on('open-url',(e,url)=>{if(parseFamilyLink(url)){e.preventDefault();accept([url]);}});
-  if(process.defaultApp)app.setAsDefaultProtocolClient('balajiclinic',process.execPath,[path.resolve(process.argv[1]||'.')]);
-  else app.setAsDefaultProtocolClient('balajiclinic');
+  if(process.defaultApp)app.setAsDefaultProtocolClient('balajiserversetup',process.execPath,[path.resolve(process.argv[1]||'.')]);
+  else app.setAsDefaultProtocolClient('balajiserversetup');
   const allowed=()=>access.getPrincipal()?.role==='admin';
   const getClinic=()=>clinicProfile.requireProfile(store);
   ipcMain.handle('clinic:profile',()=>{if(!access.getPrincipal())throw Error('Login required');return clinicProfile.profile(store);});
   ipcMain.handle('clinic:saveProfile',(_event,input)=>{if(!allowed())throw Error('Admin login required');return clinicProfile.saveProfile(store,input);});
+  ipcMain.handle('clinic:syncState',()=>clinicProfile.syncState(store));
+  ipcMain.handle('clinic:acceptCloud',(_event,{row,expected})=>clinicProfile.acceptCloud(store,row,expected));
   async function renderPdf(html) {
     const win=new BrowserWindow({show:false,webPreferences:{nodeIntegration:false,contextIsolation:true,sandbox:true,partition:'invoice-pdf'}});
     let timer;
@@ -24,12 +26,19 @@ function registerPcMessaging({app,BrowserWindow,ipcMain,dialog,shell,store,acces
       return await Promise.race([task,new Promise((_,reject)=>{timer=setTimeout(()=>reject(Error('PDF rendering timed out')),30000);})]);
     }finally{clearTimeout(timer);if(!win.isDestroyed())win.destroy();}
   }
-  const service=require('./whatsapp-service.cjs').createWhatsAppService({store,root:path.join(app.getPath('userData'),'clinic-messaging'),allowed,renderPdf,logger,getClinic});
+  const service=require('./whatsapp-service.cjs').createWhatsAppService({store,root:path.join(app.getPath('userData'),'clinic-messaging'),allowed,renderPdf,logger,getClinic,cloud:whatsappCloud});
   const admin=fn=>(...args)=>{if(!allowed())throw Error('Administrator login required');return fn(...args);};
   ipcMain.handle('patients:directory',admin(()=>store.patientDirectoryRows()));
   ipcMain.handle('family:list',admin(()=>familyGroups(store.cacheGetAll('patients'))));
   ipcMain.handle('family:profile',admin((_e,id)=>familyRecords(store,id)));
   ipcMain.handle('family:pending',admin(()=>{const id=pending;pending=null;return id;}));
+  ipcMain.handle('whatsapp:apiStatus',admin(()=>whatsappCloud.status()));
+  ipcMain.handle('whatsapp:apiConnect',admin((_e,input)=>{
+    const principal=access.getPrincipal();
+    const epoch=authEpoch();
+    return whatsappCloud.connect(input,()=>access.getPrincipal()===principal&&authEpoch()===epoch);
+  }));
+  ipcMain.handle('whatsapp:useQr',admin(()=>whatsappCloud.useQr()));
   ipcMain.handle('whatsapp:status',admin(()=>service.status()));
   ipcMain.handle('whatsapp:connect',admin(()=>service.connect()));
   ipcMain.handle('whatsapp:disconnect',admin(()=>service.disconnect()));
@@ -59,21 +68,20 @@ function registerPcMessaging({app,BrowserWindow,ipcMain,dialog,shell,store,acces
     if(save){const r=await dialog.showSaveDialog({defaultPath:'Clinic-Monthly-'+month+'.pdf',filters:[{name:'PDF',extensions:['pdf']}]});if(r.canceled)return{cancelled:true};if(!allowed())throw Error('Administrator login required');fs.copyFileSync(file,r.filePath);return{success:true};}
     const error=await shell.openPath(file);if(error)throw Error(error);return{success:true};
   }));
-  const festival=require('./festival-messaging.cjs').createFestivalService({store,allowed,whatsapp:service,sendSMS,logger,getClinic});
+  const festival=require('./festival-messaging.cjs').createFestivalService({store,allowed,whatsapp:service,sendSMS,logger,getClinic,getGateway:getSmsGateway});
   ipcMain.handle('festival:status',admin(()=>festival.status()));
   ipcMain.handle('festival:preview',admin((_e,input)=>festival.preview(input)));
   ipcMain.handle('festival:create',admin((_e,input)=>festival.create(input)));
   ipcMain.handle('festival:change',admin((_e,{id,action})=>festival.change(id,action)));
   ipcMain.handle('festival:review',admin((_e,{id,jobId,action})=>festival.review(id,jobId,action)));
   ipcMain.handle('festival:exclude',admin((_e,numbers)=>festival.setExclusions(numbers)));
-  const outreach=require('./outreach-service.cjs').createOutreachService({store,allowed,whatsapp:service,sendSMS,logger,getClinic});
+  const outreach=require('./outreach-service.cjs').createOutreachService({store,allowed,whatsapp:service,sendSMS,logger,getClinic,getGateway:getSmsGateway});
   ipcMain.handle('outreach:status',admin(()=>outreach.status()));
   ipcMain.handle('outreach:preview',admin((_e,input)=>outreach.previewBulk(input)));
   ipcMain.handle('outreach:enqueue',admin((_e,input)=>outreach.enqueueBulk(input)));
   ipcMain.handle('outreach:settings',admin((_e,input)=>outreach.setReceiptSettings(input)));
   ipcMain.handle('outreach:change',admin((_e,{id,action})=>outreach.change(id,action)));
   ipcMain.handle('outreach:review',admin((_e,{id,jobId,action})=>outreach.review(id,jobId,action)));
-  ipcMain.handle('festival:smsConfig',admin((_e,config)=>{festival.configureSMS(config);outreach.configureSMS(config);}));
   const worker=(kind,fn)=>()=>{void Promise.resolve().then(fn).catch(e=>report('MSG-010','Background messaging worker',e,{kind}));};
   const outreachTimer=setInterval(worker('outreach',()=>outreach.tick()),5000);
   app.on('before-quit',()=>clearInterval(outreachTimer));

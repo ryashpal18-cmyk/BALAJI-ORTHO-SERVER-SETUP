@@ -1,3 +1,9 @@
+import { BillingImport } from "@/components/BillingImport";
+import { syncClinicProfile } from "@/lib/clinicProfileSync";
+import { ensureCloudSession } from "@/lib/localSession";
+import { ClinicSetupWizard } from "@/components/ClinicSetupWizard";
+import { PatientImport } from "@/components/PatientImport";
+import { MessagingSettings } from "@/components/MessagingSettings";
 import { ServerSetup } from '@/components/ServerSetup';
 import { getClinicProfile, saveClinicProfile } from '@/lib/clinicProfile';
 import { DiagnosticsPanel } from "@/components/DiagnosticsPanel";
@@ -31,7 +37,7 @@ import {
 import { toast } from "@/hooks/use-toast";
 
 // ── Tab type ──
-type Tab = "clinic" | "dashboard" | "users" | "backup" | "about";
+type Tab = "clinic" | "dashboard" | "users" | "backup" | "about" | "messaging";
 
 // ── Preset colors ──
 const COLORS = [
@@ -68,6 +74,8 @@ export default function SettingsPage() {
   const [docName,    setDocName]    = useState(() => getClinicProfile().doctor);
   const [phone,      setPhone]      = useState(() => getClinicProfile().phone);
   const [address,    setAddress]    = useState(() => getClinicProfile().address);
+  const [registrationPrefix, setRegistrationPrefix] = useState(() => getClinicProfile().registration_prefix || "BAOR");
+  const [invoicePrefix, setInvoicePrefix] = useState(() => getClinicProfile().invoice_prefix || "INV");
 
   useEffect(() => {
     const bridge=(window as any).electron;
@@ -78,6 +86,7 @@ export default function SettingsPage() {
       if(p.name){
         saveClinicProfile(p);
         setClinicName(p.name);setDocName(p.doctor||'');setPhone(p.phone||'');setAddress(p.address||'');
+        setRegistrationPrefix(p.registration_prefix || 'BAOR');setInvoicePrefix(p.invoice_prefix || 'INV');
       }
     }).catch(()=>{});
     return ()=>{active=false;};
@@ -100,6 +109,7 @@ export default function SettingsPage() {
 
   // ── Backup ──
   const [backupRunning, setBackupRunning] = useState(false);
+  const [backupPassphrase, setBackupPassphrase] = useState("");
   const [backupProgress,setBackupProgress]=useState("");
   const [lastBackupAt, setLastBackupAt]   = useState<string | null>(getLastBackupAt());
   const [dailyOn,      setDailyOn]        = useState(isDailyBackupEnabled());
@@ -246,20 +256,21 @@ export default function SettingsPage() {
     setBackupFiles(files);
   };
 
-  const handleBackupNow = async () => {
+  const handleBackupNow = async (passphrase?: string) => {
     setBackupRunning(true);
     setBackupProgress("रिकॉर्ड तैयार हो रहे हैं…");
-    const res = await runBackupNow("manual",(done,total)=>setBackupProgress(`फोटो/फाइल: ${done} / ${total}`)).catch((error: any) => ({ ok: false, error: error.message, recordCounts: {}, warnings: [] } as any));
+    const res = await runBackupNow("manual",(done,total)=>setBackupProgress(`फोटो/फाइल: ${done} / ${total}`),passphrase).catch((error: any) => ({ ok: false, error: error.message, recordCounts: {}, warnings: [] } as any));
     setBackupRunning(false);
     if (res.ok && res.warnings?.length) toast({ title: "Backup saved with coverage notes", description: `${res.warnings.length} coverage notes हैं। फोटो/फाइल missing हों तो बैकअप आंशिक है। JSON में विवरण देखें।` });
     if (res.ok) {
+      if (passphrase !== undefined) setBackupPassphrase("");
       setLastBackupAt(getLastBackupAt());
       await refreshBackupInfo();
       const totalRecords = Object.values(res.recordCounts as Record<string, number>).reduce((a, b) => a + b, 0);
       toast({
         title: res.attachmentMissing ? "आंशिक बैकअप सेव हुआ — कुछ फोटो नहीं मिलीं" : res.warnings?.length ? "बैकअप सेव हुआ — coverage सीमित है" : "✅ फोटो सहित बैकअप पूरा",
         description: res.mode === "electron"
-          ? `${totalRecords} रिकॉर्ड और ${res.attachmentCount||0} फोटो/PDF सेव हैं। ${res.attachmentMissing||0} फाइल missing। Documents/Balaji_Ortho_Backups देखें।`
+          ? `${totalRecords} रिकॉर्ड और ${res.attachmentCount||0} फोटो/PDF सेव हैं। ${res.attachmentMissing||0} फाइल missing। backup folder देखें।`
           : `${totalRecords} records backup ho gaye - download folder check karein`,
       });
     } else {
@@ -268,6 +279,17 @@ export default function SettingsPage() {
         description: res.error || "Phir try karein",
         variant: "destructive",
       });
+    }
+  };
+
+  const saveAutomaticBackupPassword = async () => {
+    const bridge = (window as any).electron;
+    try {
+      if (!await bridge?.backupSetAutomaticPassword?.(backupPassphrase)) throw new Error("Windows secure storage उपलब्ध नहीं है।");
+      setBackupPassphrase("");
+      toast({ title: "Automatic Backup Password सेव हुआ", description: "Daily या Weekly toggle चालू रखें। Restore के लिए पासवर्ड अपने पास सुरक्षित रखें।" });
+    } catch (error: any) {
+      toast({ title: "Automatic backup password सेव नहीं हुआ", description: error.message, variant: "destructive" });
     }
   };
 
@@ -323,16 +345,33 @@ export default function SettingsPage() {
 
   // ── Save handlers ──
   const handleSaveClinic = async () => {
-    if (!isAdmin) return;
+    if (!isAdmin || !(window as any).electron?.saveClinicProfile) return;
     try {
-      const proposed = {name:clinicName,doctor:docName,phone,address};
+      const proposed = {name:clinicName,doctor:docName,phone,address,registration_prefix:registrationPrefix || "BAOR",invoice_prefix:invoicePrefix || "INV"};
       const bridge = (window as any).electron;
       // The clinic server owns the settings on a desktop installation.
       const confirmed = bridge?.saveClinicProfile ? await bridge.saveClinicProfile(proposed) : proposed;
       saveClinicProfile(confirmed);
+      void ensureCloudSession().then(ready => { if (ready) return syncClinicProfile(true); }).catch((error: Error) => {
+        toast({title:"Clinic Info PC पर सेव है, cloud sync बाकी", description:error.message, variant:"destructive"});
+      });
       toast({title:"Clinic details saved",description:"New bills, PDFs, WhatsApp and SMS will use this clinic name."});
     } catch (error:any) {
       toast({title:"Clinic information not saved",description:error.message,variant:"destructive"});
+    }
+  };
+
+  const loadServerClinic = async () => {
+    if (!window.confirm("Server की Clinic Info लोड करें? इस PC की pending Clinic Info बदल जाएगी।")) return;
+    try {
+      if (!navigator.onLine || !await ensureCloudSession()) throw Error("पहले Cloud Sync जोड़ें।");
+      await syncClinicProfile(true, true);
+      const saved = getClinicProfile();
+      setClinicName(saved.name); setDocName(saved.doctor); setAddress(saved.address); setPhone(saved.phone);
+      setRegistrationPrefix(saved.registration_prefix || "BAOR"); setInvoicePrefix(saved.invoice_prefix || "INV");
+      toast({ title: "Server की Clinic Info लोड हुई" });
+    } catch (error: any) {
+      toast({ title: "Clinic Info sync नहीं हुई", description: error.message, variant: "destructive" });
     }
   };
 
@@ -451,6 +490,12 @@ export default function SettingsPage() {
           </p>
         </div>
 
+        {isAdmin && isElectron && <ClinicSetupWizard
+          onOpenBackup={() => setTab("backup")} onOpenMessaging={() => setTab("messaging")}
+          onProfileSaved={() => {
+            const saved = getClinicProfile();
+            setClinicName(saved.name); setDocName(saved.doctor); setPhone(saved.phone); setAddress(saved.address);
+          }} />}
         {isAdmin && !!(window as any).electron?.changeOfflineCredentials && (
           <Card className="dash-card" style={{ marginBottom: 16 }}>
             <CardHeader><CardTitle>Admin Login ID / Password बदलें</CardTitle></CardHeader>
@@ -462,10 +507,10 @@ export default function SettingsPage() {
                 <Input required type="password" value={currentAdminPassword} onChange={e => setCurrentAdminPassword(e.target.value)} autoComplete="current-password" />
                 <Label>New Login ID</Label>
                 <Input required value={newAdminId} onChange={e => setNewAdminId(e.target.value)} />
-                <Label>New Password (minimum 8 characters)</Label>
-                <Input required minLength={8} type="password" value={newAdminPassword} onChange={e => setNewAdminPassword(e.target.value)} autoComplete="new-password" />
-                <Label>Confirm New Password</Label>
-                <Input required minLength={8} type="password" value={confirmAdminPassword} onChange={e => setConfirmAdminPassword(e.target.value)} autoComplete="new-password" />
+                <Label>New PIN (4 digits) or password (8+ characters)</Label>
+                <Input required minLength={4} type="password" value={newAdminPassword} onChange={e => setNewAdminPassword(e.target.value)} autoComplete="new-password" />
+                <Label>Confirm PIN or password</Label>
+                <Input required minLength={4} type="password" value={confirmAdminPassword} onChange={e => setConfirmAdminPassword(e.target.value)} autoComplete="new-password" />
                 <Button type="submit" disabled={changingAdminLogin || newAdminPassword !== confirmAdminPassword}>
                   {changingAdminLogin ? "Saving..." : "Save New Login"}
                 </Button>
@@ -478,7 +523,7 @@ export default function SettingsPage() {
 
         {/* Tab bar */}
         <div style={{
-          display: "flex", gap: "4px", marginBottom: "24px",
+          display: "flex", flexWrap: "wrap", gap: "4px", marginBottom: "24px",
           background: "rgba(255,255,255,0.85)", padding: "4px",
           borderRadius: "14px", border: "1.5px solid #e4ecfa",
           width: "fit-content", backdropFilter: "blur(8px)",
@@ -497,6 +542,11 @@ export default function SettingsPage() {
               User Management
             </button>
           )}
+          {isAdmin && (
+            <button style={TAB_STYLE(tab === "messaging")} onClick={() => setTab("messaging")}>
+              Messaging
+            </button>
+          )}
           <button style={TAB_STYLE(tab === "backup")} onClick={() => setTab("backup")}>
             <HardDriveDownload style={{ width: "14px", height: "14px", display: "inline", marginRight: "6px" }} />
             Backup
@@ -506,6 +556,9 @@ export default function SettingsPage() {
             About
           </button>
         </div>
+
+        {tab === "messaging" && isAdmin && <MessagingSettings />}
+        {tab === "backup" && isAdmin && isElectron && <><PatientImport /><BillingImport /></>}
 
         {/* ══════════ TAB 1: CLINIC INFO ══════════ */}
         {tab === "clinic" && (
@@ -522,6 +575,8 @@ export default function SettingsPage() {
                 { label: "Doctor Name",   value: docName,    set: setDocName },
                 { label: "Phone Number",  value: phone,      set: setPhone },
                 { label: "Address",       value: address,    set: setAddress },
+                { label: "Registration prefix (BAOR)", value: registrationPrefix, set: setRegistrationPrefix },
+                { label: "Invoice prefix (INV)", value: invoicePrefix, set: setInvoicePrefix },
               ].map(({ label, value, set }) => (
                 <div key={label} style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
                   <Label style={{ fontSize: "12px", fontWeight: 600 }}>{label}</Label>
@@ -529,10 +584,12 @@ export default function SettingsPage() {
                     style={{ fontSize: "13px", background: "#f8fafc" }} />
                 </div>
               ))}
-              <Button onClick={handleSaveClinic} style={{ width: "fit-content", gap: "6px" }}>
+              <Button disabled={!isElectron} onClick={handleSaveClinic} style={{ width: "fit-content", gap: "6px" }}>
                 <Check style={{ width: "14px", height: "14px" }} />
                 Save Changes
               </Button>
+              {isElectron ? <Button variant="outline" onClick={() => void loadServerClinic()}>Server की Clinic Info लोड करें</Button>
+                : <p className="text-sm">Clinic Info बदलने के लिए Windows EXE इस्तेमाल करें।</p>}
             </CardContent>
           </Card>
         )}
@@ -989,7 +1046,7 @@ export default function SettingsPage() {
 
                 {/* Manual backup button */}
                 <Button
-                  onClick={handleBackupNow}
+                  onClick={() => void handleBackupNow()}
                   disabled={backupRunning}
                   style={{ width: "fit-content", gap: "8px" }}
                 >
@@ -998,21 +1055,37 @@ export default function SettingsPage() {
                   ) : (
                     <HardDriveDownload style={{ width: "14px", height: "14px" }} />
                   )}
-                  {backupRunning ? "Backup ho raha hai..." : "फोटो सहित पूरा Backup"}
+                  {backupRunning ? "Backup ho raha hai..." : "Plain JSON + Excel Export"}
                 </Button>
 
+                {isElectron && <div className="space-y-2 rounded border p-3">
+                  <Label htmlFor="backup-passphrase">Encrypted backup / restore password</Label>
+                  <Input id="backup-passphrase" type="password" autoComplete="new-password" maxLength={256}
+                    value={backupPassphrase} onChange={event => setBackupPassphrase(event.target.value)} />
+                  <p className="text-xs text-muted-foreground">कम से कम 12 अक्षर रखें और पासवर्ड अलग सुरक्षित जगह लिखें। दूसरे PC पर restore के लिए यही पासवर्ड चाहिए।</p>
+                  <Button disabled={backupRunning || backupPassphrase.trim().length < 12}
+                    onClick={() => void handleBackupNow(backupPassphrase)}>Encrypted Backup (.bjbackup)</Button>
+                  <Button className="ml-2" variant="outline" disabled={backupRunning || backupPassphrase.trim().length < 12}
+                    onClick={() => void saveAutomaticBackupPassword()}>Automatic Backup Password सेव करें</Button>
+                </div>}
                 {backupProgress&&<p role="status" className="text-sm">{backupProgress}{backupRunning?"":" — जाँच पूरी"}</p>}
                 <div className="my-4 border rounded p-3">
-                  <p>Restore JSON (केवल खाली नए/test database पर; existing data overwrite नहीं होगा)</p>
-                  <Input type="file" accept=".json" onChange={async e => {
+                  <p>Restore JSON या .bjbackup (केवल खाली नए database पर)</p>
+                  <Input type="file" accept=".json,.bjbackup" onChange={async e => {
                     const file = e.target.files?.[0]; if (!file) return;
                     try {
-                      const json = await file.text(), info = inspectBackup(json);
+                      const raw = await file.text();
+                      const bridge = (window as any).electron;
+                      if (file.name.endsWith(".bjbackup") && !bridge?.backupDecrypt) throw new Error("Encrypted restore Windows EXE में उपलब्ध है।");
+                      const json = file.name.endsWith(".bjbackup")
+                        ? await bridge.backupDecrypt({ envelope: raw, passphrase: backupPassphrase })
+                        : raw;
+                      const info = inspectBackup(json);
                       if (!window.confirm(`बैकअप में ${info.records} रिकॉर्ड, ${info.attachments} फोटो/PDF, ${info.missingAttachments} missing फाइल और ${info.pending} pending काम हैं। ${info.warnings.length} coverage चेतावनियाँ हैं। केवल खाली डिवाइस पर restore करें। पुराने outgoing संदेश जाँच के लिए रोके जाएँगे। आगे बढ़ें?`)) return;
-                      await restoreBackup(json); toast({ title: "Backup restored. Restart app." });
+                      await restoreBackup(json); setBackupPassphrase(""); toast({ title: "Backup restored. Restart app." });
                     }
                     catch (error: any) { toast({ title: "Restore failed", description: error.message, variant: "destructive" }); }
-                    e.target.value = "";
+                    finally { e.target.value = ""; }
                   }} />
                 </div>
                 {getBackupStatus().at && <div className="rounded border p-3 text-sm" role="status">
@@ -1177,7 +1250,7 @@ export default function SettingsPage() {
                 </div>
 
                 <p style={{ fontSize: "11px", color: "#8a9ab0", marginTop: "2px" }}>
-                  © {new Date().getFullYear()} BJ TECH SOFTWARE DEVELOPER · Dr. Yash Rathore
+                  © {new Date().getFullYear()} BJ TECH SOFTWARE DEVELOPER
                 </p>
               </CardContent>
             </Card>

@@ -1,6 +1,6 @@
 appId: com.balaji.ortho.serversetup
 productName: BJ OPD
-copyright: "BJ TECH SOFTWARE DEVELOPER - Dr. Yash Rathore"
+copyright: "BJ TECH SOFTWARE DEVELOPER"
 
 directories:
   output: release
@@ -19,6 +19,7 @@ files:
   - pc-messaging.cjs
   - clinic-profile.cjs
   - whatsapp-service.cjs
+  - whatsapp-cloud.cjs
   - messaging-log.cjs
   - family-profile.cjs
   - invoice-document.cjs
@@ -32,7 +33,9 @@ files:
   - diagnostic-utils.cjs
   - logger.cjs
   - sqlite-store.cjs
+  - backup-encryption.cjs
   - sms-outbox.cjs
+  - textbee-settings.cjs
   - access-control.cjs
   - offline-login.cjs
   - cloud-sync.cjs
@@ -55,5 +58,5 @@ nsis:
   artifactName: "BJ-OPD-Setup-${version}.exe"
 
 protocols:
-  - name: Balaji Clinic Family Profile
+  - name: BJ OPD Family Profile
     schemes: [balajiserversetup]

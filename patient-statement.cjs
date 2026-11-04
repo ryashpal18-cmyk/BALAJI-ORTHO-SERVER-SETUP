@@ -19,16 +19,17 @@ function buildStatement({patient,bills,lastSyncAt},now=Date.now()){
     if(discount>gross)throw Error('STATEMENT-002: Discount bill total से अधिक है।');
     const net=gross-discount,due=Math.max(net-paid,0),credit=Math.max(paid-net,0),id=normId(b._statementId||b.id);
     if(!id)throw Error('STATEMENT-002: Bill reference missing');
-    rows.push({id,date:b.created_at||null,service:String(b.service||'Service'),gross,discount,net,paid,due,credit,pending:!!b._pendingSync});
+    const invoiceNumber=b.invoice_number || 'INV-'+id.toUpperCase();
+    rows.push({id,invoiceNumber,date:b.created_at||null,service:String(b.service||'Service'),gross,discount,net,paid,due,credit,pending:!!b._pendingSync});
     if(Array.isArray(b.payment_history)){
       let ledger=0;const seen=new Set();let invalid=false;
       for(const r of b.payment_history){
         const amount=signedCents(r?.amount);
         if(amount===null||!r?.id||seen.has(r.id)){invalid=true;continue;}seen.add(r.id);ledger=add(ledger,amount);
-        payments.push({id:String(r.id),billId:id,amount,date:r.legacy?null:r.paid_at||null,mode:String(r.payment_mode||'Not recorded'),legacy:!!r.legacy});
+        payments.push({id:String(r.id),billId:id,invoiceNumber,amount,date:r.legacy?null:r.paid_at||null,mode:String(r.payment_mode||'Not recorded'),legacy:!!r.legacy});
       }
-      if(invalid||ledger!==paid)warnings.push('INV-'+id.toUpperCase()+': अलग receipt history अधूरी/असंगत है; totals में bill की जमा राशि ली गई है।');
-    }else if(paid){payments.push({id:'legacy-'+id,billId:id,amount:paid,date:null,mode:String(b.payment_mode||'Not recorded'),legacy:true});}
+      if(invalid||ledger!==paid)warnings.push(invoiceNumber+': अलग receipt history अधूरी/असंगत है; totals में bill की जमा राशि ली गई है।');
+    }else if(paid){payments.push({id:'legacy-'+id,billId:id,invoiceNumber,amount:paid,date:null,mode:String(b.payment_mode||'Not recorded'),legacy:true});}
   }
   const totals=rows.reduce((t,r)=>{for(const key of ['gross','discount','net','paid','due','credit'])t[key]=add(t[key],r[key]);return t;},{gross:0,discount:0,net:0,paid:0,due:0,credit:0});
   payments.sort((a,b)=>String(a.date||'').localeCompare(String(b.date||''))||a.id.localeCompare(b.id));
@@ -42,8 +43,8 @@ function statementForPatient(store,id,now=Date.now()) {return buildStatement(sto
 function statementSummary(s){return{patient:s.patient,billCount:s.rows.length,paymentCount:s.payments.length,totals:s.totals,warnings:s.warnings,pending:s.pending,excluded:s.excluded.length,fingerprint:s.fingerprint,scope:s.scope,generatedAt:s.generatedAt};}
 function statementDocument(s,clinic={name:'Clinic / Hospital'}){
   const inv=id=>'INV-'+String(id).toUpperCase();
-  const rows=s.rows.map(r=>`<tr><td>${escape(date(r.date))}</td><td class="reference">${escape(inv(r.id))}<div class="service">${escape(r.service)}</div></td>${['gross','discount','net','paid','due'].map(k=>`<td class="amount">${money(r[k])}</td>`).join('')}</tr>`).join('');
-  const payments=s.payments.map(r=>`<tr><td>${escape(date(r.date))}${r.legacy?'<div class="muted">पुराना संयुक्त जमा; अलग तारीख उपलब्ध नहीं</div>':''}</td><td class="reference">${escape(inv(r.billId))}<div class="muted">Receipt: ${escape(r.id)}</div></td><td>${escape(r.mode)}</td><td class="amount">${money(r.amount)}</td></tr>`).join('');
+  const rows=s.rows.map(r=>`<tr><td>${escape(date(r.date))}</td><td class="reference">${escape(r.invoiceNumber || inv(r.id))}<div class="service">${escape(r.service)}</div></td>${['gross','discount','net','paid','due'].map(k=>`<td class="amount">${money(r[k])}</td>`).join('')}</tr>`).join('');
+  const payments=s.payments.map(r=>`<tr><td>${escape(date(r.date))}${r.legacy?'<div class="muted">पुराना संयुक्त जमा; अलग तारीख उपलब्ध नहीं</div>':''}</td><td class="reference">${escape(r.invoiceNumber || inv(r.billId))}<div class="muted">Receipt: ${escape(r.id)}</div></td><td>${escape(r.mode)}</td><td class="amount">${money(r.amount)}</td></tr>`).join('');
   return `<!doctype html><html lang="hi"><head><meta charset="utf-8"><meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'"><title>Patient Statement</title><style>
   @page{size:A4;margin:14mm}*{box-sizing:border-box}body{font:12px 'Segoe UI',Arial,sans-serif;color:#18364c;margin:0}header{background:#173f60;color:white;padding:17px;border-radius:8px}h1{font-size:21px;margin:0 0 6px}h2{font-size:17px;margin:20px 0 10px}p{line-height:1.6}.muted,.service{font-size:10px;color:#546b7b}.summary{display:flex;gap:10px;margin:16px 0}.summary>div{flex:1;border:1px solid #d8e3ec;padding:10px;border-radius:6px}.summary strong{display:block;font-size:18px;margin-top:7px}.due{background:#fff4e8}table{width:100%;border-collapse:collapse;font-size:10px;table-layout:fixed}thead{display:table-header-group}tr{break-inside:avoid}th,td{text-align:left;padding:7px 5px;border-bottom:1px solid #dbe5ed;vertical-align:top;overflow-wrap:anywhere}th{background:#edf3f7}.amount{text-align:right;white-space:nowrap}.reference{overflow-wrap:anywhere}.note{padding:10px;background:#fff8e9;border:1px solid #edcf89;margin:12px 0;white-space:pre-wrap}.footer{margin-top:18px;border-top:1px solid #d8e3ec;padding-top:9px;font-size:10px;color:#546b7b}</style></head><body>
   <header><h1>${escape(clinic.name)}</h1><div>Patient Account Statement / मरीज का पूरा हिसाब</div></header>

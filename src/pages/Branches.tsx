@@ -71,7 +71,7 @@ export default function Branches() {
             <DialogContent className="max-w-sm">
               <DialogHeader><DialogTitle>{editing ? "Branch Edit Karo" : "Naya Branch"}</DialogTitle></DialogHeader>
               <div className="space-y-3">
-                <div><Label>Branch Naam</Label><Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="e.g. Khinwara (Main), Jodhpur Branch" /></div>
+                <div><Label>Branch Naam</Label><Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="जैसे मुख्य शाखा" /></div>
                 <div><Label>Address</Label><Input value={form.address} onChange={(e) => setForm({ ...form, address: e.target.value })} /></div>
                 <div><Label>Phone</Label><Input value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} /></div>
                 <div className="flex items-center justify-between">

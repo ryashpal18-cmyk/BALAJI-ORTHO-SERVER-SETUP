@@ -1,3 +1,4 @@
+import { syncClinicProfile } from "@/lib/clinicProfileSync";
 import { useEffect, useState } from "react";
 import { Navigate, useLocation } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
@@ -31,12 +32,12 @@ export function ProtectedRoute({ children }: { children: React.ReactNode }) {
         else { const { data, error } = await supabase.functions.invoke("session-access"); if (error) throw error; profile = data; }
         if (live) {
           if (profile) {
+            if (!bridge) await syncClinicProfile(false).catch(() => {});
+            if (!live) return;
             displaySession(profile);
             startAutoSync();
             if (profile.role === "admin") {
               startAutoBackupScheduler();
-              // Compiled gateway config stays in main-process memory, never campaign metadata.
-              void bridge?.festival?.configureSMS({apiUrl:import.meta.env.VITE_TEXTBEE_API_URL,apiKey:import.meta.env.VITE_TEXTBEE_API_KEY,deviceId:import.meta.env.VITE_TEXTBEE_DEVICE_ID}).catch(()=>{});
             }
             localStorage.setItem(STORAGE_KEYS.USER_ROLE, profile.role);
             localStorage.setItem(STORAGE_KEYS.USER_PERMS, JSON.stringify(profile.pages || []));

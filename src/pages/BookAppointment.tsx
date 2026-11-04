@@ -1,3 +1,4 @@
+import { getClinicProfile } from "@/lib/clinicProfile";
 import { businessDate } from "@/lib/businessDate";
 import { useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
@@ -7,7 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { CalendarCheck, CheckCircle2 } from "lucide-react";
-import logo from "@/assets/logo.png";
+const logo = "./bj-opd-icon.png";
 
 /**
  * PUBLIC page — login ki zaroorat nahi (HashRouter route '/book-appointment').
@@ -68,11 +69,11 @@ export default function BookAppointment() {
     <div style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", background: "#f1f5f9", padding: 16 }}>
       <Card className="max-w-sm w-full">
         <CardHeader className="text-center space-y-2">
-          <img src={logo} alt="Balaji" style={{ height: 48, width: 48, margin: "0 auto", borderRadius: 12 }} />
+          <img src={logo} alt="BJ OPD" style={{ height: 48, width: 48, margin: "0 auto", borderRadius: 12 }} />
           <CardTitle className="flex items-center justify-center gap-2">
             <CalendarCheck className="h-5 w-5" /> Appointment Book Karo
           </CardTitle>
-          <p className="text-xs text-muted-foreground">Balaji Ortho Care Center — Dr. S. S. Rathore</p>
+          <p className="text-xs text-muted-foreground">{[getClinicProfile().name, getClinicProfile().doctor].filter(Boolean).join(" — ") || "Clinic appointment"}</p>
         </CardHeader>
         <CardContent className="space-y-3">
           <div><Label>Patient ka Naam *</Label><Input value={form.patient_name} onChange={(e) => setForm({ ...form, patient_name: e.target.value })} /></div>

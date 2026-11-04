@@ -674,6 +674,10 @@ BEGIN
  IF EXISTS (SELECT 1 FROM jsonb_array_elements(NEW.payment_history) e WHERE e->>'id' IS NULL OR e->>'amount' IS NULL OR e->>'paid_at' IS NULL) THEN RAISE EXCEPTION 'Incomplete receipt'; END IF;
  SELECT coalesce(sum((e->>'amount')::numeric),0) INTO total FROM jsonb_array_elements(NEW.payment_history) e;
  IF total<0 OR total::text IN ('NaN','Infinity','-Infinity') THEN RAISE EXCEPTION 'Invalid paid balance'; END IF;
+ IF total > greatest(NEW.amount-coalesce(NEW.discount,0),0)
+    AND (TG_OP='INSERT' OR total > OLD.amount_paid) THEN
+   RAISE EXCEPTION 'Payment exceeds current bill balance' USING ERRCODE='23514';
+ END IF;
  NEW.amount_paid:=total;
  NEW.status:=CASE WHEN total>=greatest(NEW.amount-coalesce(NEW.discount,0),0) THEN 'Paid' WHEN total>0 THEN 'Partial' ELSE 'Pending' END;
  RETURN NEW;
@@ -698,11 +702,11 @@ BEGIN
   PERFORM pg_advisory_xact_lock(821734, 1);
   IF NEW.registration_number IS NULL THEN
     n := nextval('public.patient_registration_seq'::regclass);
-    NEW.registration_number := 'BAOR' || lpad(n::text, greatest(4, length(n::text)), '0');
-  ELSIF NEW.registration_number !~ '^BAOR[0-9]{4,}$' THEN
+    NEW.registration_number := coalesce((SELECT registration_prefix FROM public.bjopd_clinic_profile WHERE id), 'BAOR') || lpad(n::text, greatest(4, length(n::text)), '0');
+  ELSIF NEW.registration_number !~ '^[A-Z]{2,12}[0-9]{4,16}$' THEN
     RAISE EXCEPTION 'Invalid registration number';
   ELSE
-    n := substring(NEW.registration_number FROM 5)::bigint;
+    n := substring(NEW.registration_number FROM '[0-9]+$')::bigint;
     IF n < 1 THEN RAISE EXCEPTION 'Invalid registration serial'; END IF;
     PERFORM setval('public.patient_registration_seq'::regclass, greatest(n,
       (SELECT last_value FROM public.patient_registration_seq)), true);
@@ -736,7 +740,7 @@ BEGIN
   reserved := '[]'::jsonb;
   FOR i IN 1..p_count LOOP
     n := nextval('public.patient_registration_seq');
-    reserved := reserved || jsonb_build_array('BAOR' || lpad(n::text, greatest(4, length(n::text)), '0'));
+    reserved := reserved || jsonb_build_array(coalesce((SELECT registration_prefix FROM public.bjopd_clinic_profile WHERE id), 'BAOR') || lpad(n::text, greatest(4, length(n::text)), '0'));
   END LOOP;
   INSERT INTO public.patient_registration_leases(request_id, user_id, device_id, numbers)
     VALUES (p_request, auth.uid(), p_device, reserved);
@@ -1106,6 +1110,19 @@ CREATE TRIGGER assign_patient_registration BEFORE INSERT OR UPDATE OF registrati
 
 CREATE TRIGGER sync_repair_guard_cash_day BEFORE INSERT OR UPDATE ON cash_book_days FOR EACH ROW EXECUTE FUNCTION sync_repair_guard_cash_day();
 
+-- Allow the staff UI to read only its authorized clinic branch. Write grants remain admin-only.
+DROP POLICY IF EXISTS bjopd_staff_read_patients ON public.patients;
+CREATE POLICY bjopd_staff_read_patients ON public.patients FOR SELECT TO authenticated
+  USING (public.can_use_pages(ARRAY['/dashboard','/opd','/appointments','/billing','/due-amount','/ortho','/reports','/physiotherapy','/prescription','/patient-medicine','/whatsapp','/insurance-claims','/booking-requests']) AND public.can_use_branch(branch_id));
+
+DROP POLICY IF EXISTS bjopd_staff_read_billing ON public.billing;
+CREATE POLICY bjopd_staff_read_billing ON public.billing FOR SELECT TO authenticated
+  USING (public.can_use_pages(ARRAY['/dashboard','/billing','/due-amount','/cash-tally','/daily-cash-book','/analytics','/revenue-dashboard','/medicine-commission']) AND public.can_use_branch(branch_id));
+
+DROP POLICY IF EXISTS bjopd_staff_read_branches ON public.branches;
+CREATE POLICY bjopd_staff_read_branches ON public.branches FOR SELECT TO authenticated
+  USING (public.can_use_pages(ARRAY['*']) AND public.can_use_branch(id));
+
 NOTIFY pgrst,'reload schema';
 
 -- Apply after 20261006180000_offline_cashbook_followup.sql.
@@ -1140,5 +1157,48 @@ GRANT ALL ON public.clinic_installation TO service_role;
 INSERT INTO public.clinic_installation(id,schema_version) VALUES(true,1);
 -- Users may append audit events only through the checked RPC.
 REVOKE INSERT, UPDATE, DELETE ON public.audit_logs, public.deleted_records_log FROM authenticated;
+
+CREATE TABLE IF NOT EXISTS public.bjopd_clinic_profile (
+  id boolean PRIMARY KEY DEFAULT true CHECK (id),
+  revision uuid NOT NULL,
+  name text NOT NULL CHECK (char_length(trim(name)) BETWEEN 3 AND 120),
+  doctor text NOT NULL DEFAULT '' CHECK (char_length(doctor) <= 100),
+  phone text NOT NULL DEFAULT '' CHECK (char_length(phone) <= 32),
+  address text NOT NULL DEFAULT '' CHECK (char_length(address) <= 240)
+);
+ALTER TABLE public.bjopd_clinic_profile ENABLE ROW LEVEL SECURITY;
+REVOKE ALL ON public.bjopd_clinic_profile FROM PUBLIC, anon, authenticated;
+GRANT SELECT, INSERT, UPDATE ON public.bjopd_clinic_profile TO authenticated;
+DROP POLICY IF EXISTS clinic_profile_read ON public.bjopd_clinic_profile;
+CREATE POLICY clinic_profile_read ON public.bjopd_clinic_profile FOR SELECT TO authenticated
+  USING (public.can_use_pages(ARRAY['*']));
+DROP POLICY IF EXISTS clinic_profile_insert ON public.bjopd_clinic_profile;
+CREATE POLICY clinic_profile_insert ON public.bjopd_clinic_profile FOR INSERT TO authenticated
+  WITH CHECK (public.has_role((SELECT auth.uid()), 'admin'));
+DROP POLICY IF EXISTS clinic_profile_update ON public.bjopd_clinic_profile;
+CREATE POLICY clinic_profile_update ON public.bjopd_clinic_profile FOR UPDATE TO authenticated
+  USING (public.has_role((SELECT auth.uid()), 'admin'))
+  WITH CHECK (public.has_role((SELECT auth.uid()), 'admin'));
+NOTIFY pgrst, 'reload schema';
+
+ALTER TABLE public.bjopd_clinic_profile
+  ADD COLUMN IF NOT EXISTS registration_prefix text NOT NULL DEFAULT 'BAOR' CHECK (registration_prefix ~ '^[A-Z]{2,12}$'),
+  ADD COLUMN IF NOT EXISTS invoice_prefix text NOT NULL DEFAULT 'INV' CHECK (invoice_prefix ~ '^[A-Z]{2,12}$');
+ALTER TABLE public.billing ADD COLUMN IF NOT EXISTS invoice_number text
+  CHECK (invoice_number ~ '^[A-Z]{2,12}-[0-9A-F-]{36}$');
+CREATE UNIQUE INDEX IF NOT EXISTS billing_invoice_number_unique ON public.billing(invoice_number) WHERE invoice_number IS NOT NULL;
+CREATE OR REPLACE FUNCTION public.keep_billing_invoice_number()
+RETURNS trigger LANGUAGE plpgsql SET search_path = '' AS $$
+BEGIN
+  IF OLD.invoice_number IS DISTINCT FROM NEW.invoice_number THEN
+    RAISE EXCEPTION 'Invoice number is permanent';
+  END IF;
+  RETURN NEW;
+END;
+$$;
+REVOKE ALL ON FUNCTION public.keep_billing_invoice_number() FROM PUBLIC;
+DROP TRIGGER IF EXISTS keep_billing_invoice_number ON public.billing;
+CREATE TRIGGER keep_billing_invoice_number BEFORE UPDATE OF invoice_number ON public.billing
+  FOR EACH ROW EXECUTE FUNCTION public.keep_billing_invoice_number();
 
 COMMIT;

@@ -19,7 +19,7 @@ for(const name of ['cacheMergeServer','cacheGetAll','cacheGetRow','cacheSetRows'
  bridge[name]=async(...args)=>{try{return {success:true,data:structuredClone(store[name](...args))}}catch(e){return {success:false,error:e.message}}};
 bridge.queueAdd=async m=>{try{return {success:true,id:store.queueAdd(m)}}catch(e){return {success:false,id:-1,error:e.message}}};
 bridge.metaGet=async key=>({success:true,value:store.metaGet(key)});
-const windowMock={electron:{offline:bridge},addEventListener:noop};
+const windowMock={electron:{offline:bridge,messaging:{billSmsEnabled:async()=>true}},addEventListener:noop};
 function load(file,names,deps={}){
  let source=fs.readFileSync(root+'/'+file,'utf8').replace(/^import[\s\S]*?from\s+["'][^"']+["'];?/gm,'').replaceAll('import.meta.env','({})');
  source=ts.transpile(source.replace(/\bexport\s+/g,''),{target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.CommonJS});
@@ -33,15 +33,15 @@ const offline=load('src/lib/offlineQuery.ts',['offlineInsert','offlineUpdate','o
 
 const {normalizeBill}=require('./audit-fixtures.cjs');
 const invoice=load('src/lib/invoiceNumber.ts',['invoiceNumber']);
-const sms=load('src/lib/billSmsMessage.ts',['buildBillSmsMessage']);
-const save=load('src/lib/saveBillOffline.ts',['saveBillOffline'],{...db,...payment,...invoice,...sms,normalizeBill,normalizeIndianMobile:x=>'91'+x,isValidMobile:x=>/^\d{10}$/.test(x),runSync:async()=>{}}).saveBillOffline;
+const sms=load('src/lib/billSmsMessage.ts',['buildBillSmsMessage'],{requireClinicProfile:()=>({name:'Synthetic Clinic'})});
+const save=load('src/lib/saveBillOffline.ts',['saveBillOffline'],{...db,...payment,...invoice,...sms,getClinicProfile:()=>({invoice_prefix:"TEST"}),normalizeBill,normalizeIndianMobile:x=>'91'+x,isValidMobile:x=>/^\d{10}$/.test(x),runSync:async()=>{}}).saveBillOffline;
 function expression(file,name) { const text=fs.readFileSync(root+'/'+file,'utf8'),ast=ts.createSourceFile(file,text,ts.ScriptTarget.Latest,true,ts.ScriptKind.TSX);let out;function walk(n){if(ts.isVariableDeclaration(n)&&n.name.getText(ast)===name)out=n.initializer;ts.forEachChild(n,walk)}walk(ast);return {node:out,ast}; }
 function evaluate(code,ctx){return vm.runInNewContext(ts.transpile('const result = '+code+';',{target:ts.ScriptTarget.ES2022})+'result',ctx)}
 (async()=>{
  const patient={id:'local_00000000-0000-4000-8000-000000000111',name:'Test Patient',mobile:'9123456780',branch_id:'branch-test'};store.cacheUpsertRow('patients',patient,'id');
  const input={patient_id:patient.id,amount:1000,discount:200,amount_paid:300,service:'Consultation:1000'};
  failQueueAt=2;await assert.rejects(()=>save(input),/disk/);assert.equal(store.cacheGetAll('billing').length,0);assert.equal(store.cacheGetAll('sms_logs').length,0);assert.equal(store.queueGetAll().length,0);
- failQueueAt=0;const saved=await save(input);assert.equal(saved.smsQueued,true);assert.equal(store.queueGetAll().length,2);assert.match(store.queueGetAll().find(q=>q.op==='sms').payload.message,/हार्दिक स्वागत है/);assert.equal(saved.payment_history[0].amount,300);
+ failQueueAt=0;const saved=await save(input);assert.equal(saved.smsQueued,true);assert.match(saved.invoice_number,/^TEST-/);assert.match(store.queueGetAll().find(q=>q.op==='sms').payload.message,/TEST-/);assert.equal(store.queueGetAll().length,2);assert.match(store.queueGetAll().find(q=>q.op==='sms').payload.message,/हार्दिक स्वागत है/);assert.equal(saved.payment_history[0].amount,300);
  store.close();store.init(testDir);assert.equal(store.cacheGetAll('billing').length,1);assert.equal(store.queueGetAll().length,2);console.log('PASS atomic bill/SMS rollback on second write failure, welcome message and payment history survive restart');
  // Bill pending cloud upload must not block its SMS lane.
  let sent=0;windowMock.electron.sendSMS=async()=>{sent++;return {ok:true}};
@@ -59,5 +59,14 @@ function evaluate(code,ctx){return vm.runInNewContext(ts.transpile('const result
  let patch; e=expression(file,'handleMarkFullyPaid');await evaluate(e.node.getText(e.ast),{updateBill:{mutateAsync:async x=>patch=x},toast:()=>{}})(due[0]);assert.equal(patch.amount,1000);assert.equal(patch.amount_paid,800);assert.equal(normalizeBill(patch,{...input,id:'bill'}).status,'Paid');
  const notices=[];e=expression(file,'handleSendSMS');await evaluate(e.node.getText(e.ast),{setSendingId:()=>{},sendSMS:async()=>({ok:false,queued:false,error:'disk full'}),getDueMessage:()=>'',toast:x=>notices.push(x)})({...due[0],patients:patient});assert.equal(notices[0].title,'SMS bhejne me dikkat hui');console.log('PASS discounted due and full-payment amount; no false SMS success');
  e=expression('src/pages/Ortho.tsx','handleSave');let caseRow;const notices2=[];await evaluate(e.node.getText(e.ast),{name:'Test Patient',mobile:'+919123456780',bodySelection:{body_part:'Arm'},fractureType:'Test',selPt:null,savingCase:{current:false},cacheGetAll:async()=>[patient],addPatient:{mutateAsync:async()=>{throw Error('Duplicate patient')}},addCase:{mutateAsync:async r=>caseRow=r},age:'',cause:'',plasterType:'POP',plasterDate:'2026-10-08',followupDays:'7',nextFU:'2026-10-15',notes:'',toast:{success:x=>notices2.push(x),error:x=>{throw Error(x)}},sendSMS:async()=>({ok:true,queued:true}),tplReminder:()=>'',resetForm:()=>{},refetchCases:()=>{},refetchFollowups:()=>{}})();assert.equal(caseRow.patient_id,patient.id);console.log('PASS Ortho save reuses local patient without any network dependency');
+ const oldId='local_00000000-0000-4000-8000-000000000999';
+ const oldBill={...input,id:oldId,created_at:'2020-01-01T06:30:00.000Z'};
+ const imported={mutation:{table:'billing',op:'insert',tempId:oldId,payload:oldBill,historicalImport:true},row:oldBill};
+ const beforeImport=store.queueGetAll().length;
+ await db.commitBatch([imported]);
+ assert.equal(store.metaGet('whatsapp:bill-origin:'+oldId.slice(6)),undefined);
+ await assert.rejects(()=>db.commitBatch([imported]),/पहले import/);
+ assert.equal(store.queueGetAll().length,beforeImport+1);
+ console.log('PASS historical import writes one queue entry and is excluded from automatic bill WhatsApp');
  store.close();fs.rmSync(testDir,{recursive:true,force:true});
 })().catch(e=>{console.error(e);try{store.close()}catch{};fs.rmSync(testDir,{recursive:true,force:true});process.exitCode=1});

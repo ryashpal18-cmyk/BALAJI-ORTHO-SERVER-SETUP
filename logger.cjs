@@ -1,10 +1,23 @@
 'use strict';
 const fs=require('fs'),path=require('path'),crypto=require('crypto');
 const {normalizeEvent,localDay}=require('./diagnostic-utils.cjs');
-// Factory permits isolated fault-injection tests; production uses only the clinic log folder.
-function createLogger({dir=path.join(require('os').homedir(), 'BalajiOrthoServerSetupLogs'), now=Date.now, maxBytes=5*1024*1024, maxTotalBytes=100*1024*1024, consoleOutput=true,onAlert=()=>{}}={}) {
+const homeLogDir = path.join(require('os').homedir(), 'BalajiOrthoServerSetupLogs');
+const windowsLogDir = 'C:\\BJ_OPD\\logs';
+// Explicit directories keep tests and separate app installations isolated.
+function createLogger({dir=process.platform === 'win32' ? windowsLogDir : homeLogDir, fallbackDir=dir === windowsLogDir ? homeLogDir : undefined, now=Date.now, maxBytes=5*1024*1024, maxTotalBytes=100*1024*1024, consoleOutput=true,onAlert=()=>{}}={}) {
   const session=crypto.randomUUID();let lastWriteError='', handlers=false, appVersion='unknown';const bursts=new Map();
-  function ensure(){fs.mkdirSync(dir,{recursive:true});}
+  function useFallback(error) {
+    if (!fallbackDir || dir === fallbackDir || !['EACCES','EPERM','EROFS','ENOENT','ENOTDIR','EEXIST'].includes(error.code)) return false;
+    dir = fallbackDir;
+    return true;
+  }
+  function ensure() {
+    try { fs.mkdirSync(dir,{recursive:true}); }
+    catch (error) {
+      if (!useFallback(error)) throw error;
+      fs.mkdirSync(dir,{recursive:true});
+    }
+  }
   function filename(ext){const base=`app-${localDay(now())}`;let part=1,file;do{file=path.join(dir,base+(part===1?'':`-part${part}`)+ext);part++;}while(fs.existsSync(file)&&fs.statSync(file).size>=maxBytes);return file;}
   function cleanOldLogs(){
     try {ensure();const files=fs.readdirSync(dir).filter(f=>/^app-\d{4}-\d{2}-\d{2}(?:-part\d+)?\.(log|jsonl)$/.test(f)).map(f=>({file:path.join(dir,f),...fs.statSync(path.join(dir,f))})).sort((a,b)=>a.mtimeMs-b.mtimeMs);let total=files.reduce((s,f)=>s+f.size,0);
@@ -14,7 +27,15 @@ function createLogger({dir=path.join(require('os').homedir(), 'BalajiOrthoServer
   let writes=0;
   function record(input){
     const e=normalizeEvent({...input,session,appVersion},now());
-    try{ensure();if(++writes%100===0)cleanOldLogs();fs.appendFileSync(filename('.jsonl'),JSON.stringify(e)+'\n','utf8');fs.appendFileSync(filename('.log'),`[${e.timestamp}] [${e.level.toUpperCase()}] [${e.source}] [${e.code}]\n    ${e.message}\n${e.stack||''}${e.detail?'\n    Detail: '+JSON.stringify(e.detail):''}\n${'─'.repeat(80)}\n`,'utf8');lastWriteError='';}
+    const write = () => {ensure();fs.appendFileSync(filename('.jsonl'),JSON.stringify(e)+'\n','utf8');fs.appendFileSync(filename('.log'),`[${e.timestamp}] [${e.level.toUpperCase()}] [${e.source}] [${e.code}]\n    ${e.message}\n${e.stack||''}${e.detail?'\n    Detail: '+JSON.stringify(e.detail):''}\n${'─'.repeat(80)}\n`,'utf8');lastWriteError='';};
+    try {
+      if (++writes % 100 === 0) cleanOldLogs();
+      try { write(); }
+      catch (error) {
+        if (!useFallback(error)) throw error;
+        write();
+      }
+    }
     catch(error){lastWriteError=error.code||'LOG_WRITE_FAILED';if(consoleOutput)console.error('[LOGGER]',lastWriteError);}
     // Never send raw messages/details to the developer console.
     if(consoleOutput)console[e.level==='error'?'error':e.level==='warn'?'warn':'log'](`[${e.code}] [${e.source}] ${e.message}`);

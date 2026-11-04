@@ -7,7 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
-import { CalendarCheck, Check, X, Phone, Copy } from "lucide-react";
+import { CalendarCheck, Check, X, Phone } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { logAudit } from "@/hooks/useAuditLog";
 import { offlineFetch, offlineUpdate, offlineInsert } from "@/lib/offlineQuery";
@@ -84,17 +84,6 @@ export default function BookingRequests() {
     } finally { processing.current.delete(req.id); }
   };
 
-  const copyBookingLink = async () => {
-    try {
-      const configured = import.meta.env.VITE_PUBLIC_BOOKING_URL;
-      const base = configured || (window.location.protocol === 'https:' ? window.location.origin + window.location.pathname : '');
-      if (!base || new URL(base).protocol !== 'https:') throw new Error('Public booking website URL अभी configured नहीं है।');
-      const link = base.split('#')[0] + '#/book-appointment';
-      await navigator.clipboard.writeText(link);
-      toast({ title: 'Booking link copied' });
-    } catch (e: any) { toast({ title: 'Link copy नहीं हुआ', description: e.message, variant: 'destructive' }); }
-  };
-
   const pending = requests.filter((r) => r.status === "Pending");
 
   return (
@@ -107,9 +96,6 @@ export default function BookingRequests() {
             </h1>
             <p className="text-sm text-muted-foreground">Patient self-booking se aayi requests yahan review karo</p>
           </div>
-          <Button variant="outline" className="gap-1.5" onClick={copyBookingLink}>
-            <Copy className="h-4 w-4" /> Booking Link Copy Karo
-          </Button>
         </div>
 
         {pending.length > 0 && (

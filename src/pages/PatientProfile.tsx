@@ -295,7 +295,7 @@ export default function PatientProfile() {
                       const services = String(b.service || "").split("|").map((s: string) => s.split(":")[0].trim()).filter(Boolean).join(", ");
                       return (
                         <tr key={b.id} className="hover:bg-muted/20">
-                          <td className="p-3 font-mono text-xs">{invoiceNumber(b.id)}</td>
+                          <td className="p-3 font-mono text-xs">{invoiceNumber(b.id, b.invoice_number)}</td>
                           <td className="p-3 max-w-[160px] truncate text-xs text-muted-foreground">{services}</td>
                           <td className="p-3 text-xs">{new Date(b.created_at).toLocaleDateString("en-IN")}</td>
                           <td className="p-3 text-right font-medium">₹{amt.toLocaleString("en-IN")}<small className="block">छूट ₹{Number(b.discount || 0).toLocaleString("en-IN")}</small></td>

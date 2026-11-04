@@ -83,10 +83,15 @@ function authorize(channel, args, store) {
     }
   }
   if (['auth:login','auth:check','auth:logout','auth:establish','auth:offlineLogin','auth:offlineSetup','auth:offlineStatus','app:isOnline','app:getVersion','log:rendererError'].includes(channel)) return;
+  // First-run password rotation has no principal until the one-time token is verified.
+  if (channel === 'auth:changeOfflineCredentials' &&
+      typeof args[0]?.changeToken === 'string' &&
+      /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(args[0].changeToken)) return;
   const p = getPrincipal(); if (!p) throw new Error('Please log in');
   if (channel === 'offline:commitBatch') return; // Each operation is authorized inside the atomic transaction.
   if (['auth:syncSession','auth:adoptSyncSession','auth:cloudSyncStatus'].includes(channel) && !p.localAdmin) throw new Error('Local administrator required');
   if (p.role === 'admin') return;
+  if (channel === 'messaging:billSmsEnabled') return assertTable('billing');
   if (channel === 'offline:refreshCashDays') return assertTable('cash_book_days');
   if (channel === 'offline:cacheGetAll') return assertTable(args[0]);
   if (channel === 'offline:cacheGetRow') return assertTable(args[0]?.table); // result filtered in handler
@@ -130,7 +135,8 @@ function authorize(channel, args, store) {
     return;
   }
   if (['offline:isLegacyMigrated','app:openExternal','open-external-url','open-whatsapp','app:print','shell:print','print-invoice','log:getDir','log:getSnapshotDir'].includes(channel)) return;
-  if (['app:sendSMS','open-whatsapp-desktop'].includes(channel)) { assertTable('sms_logs'); if (channel === 'app:sendSMS') assertRow('sms_logs',args[0],store); return; }
+  // app:sendSMS checks ownership and branch access against the persisted queue entry.
+  if (['app:sendSMS','open-whatsapp-desktop'].includes(channel)) return assertTable('sms_logs');
   throw new Error('Administrator permission required');
 }
 function filterBranches(rows) { const p=getPrincipal(); return !p ? [] : p.role==='admin'||p.branchIds==null ? rows : rows.filter(r=>p.branchIds.includes(r.branch_id)); }

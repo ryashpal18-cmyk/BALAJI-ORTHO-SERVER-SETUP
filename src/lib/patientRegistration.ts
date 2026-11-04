@@ -4,7 +4,7 @@ import { cacheGetAll, cacheGetRow, cacheUpsertRowFromServer, metaGet, metaSet, q
 import { queryClient } from "./queryClient";
 
 export const REGISTRATION_LEASES = "patient-registration:leases";
-export const registrationSerial = (value: unknown) => /^BAOR\d{4,}$/.test(String(value || "")) ? Number(String(value).slice(4)) : 0;
+export const registrationSerial = (value: unknown) => Number(/^[A-Z]{2,12}(\d{4,16})$/.exec(String(value || ""))?.[1] || 0);
 let warming: Promise<void> | null = null;
 let retryAfter = 0;
 /** Reserve unique numbers centrally; consuming them during Save is a local DB transaction. */

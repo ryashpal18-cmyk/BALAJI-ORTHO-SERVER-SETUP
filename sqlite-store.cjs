@@ -23,7 +23,7 @@ const registration = (() => {
 // A primary clinic PC allocates offline numbers only after one complete,
 // numbered cloud snapshot has initialized its durable high-water mark.
 const KEY = 'patient-registration:last-number';
-const serial = value => /^BAOR\d{4,}$/.test(String(value || '')) ? Number(String(value).slice(4)) : 0;
+const serial = value => Number(/^[A-Z]{2,12}(\d{4,16})$/.exec(String(value || ""))?.[1] || 0);
 const format = n => 'BAOR' + String(n).padStart(4, '0');
 function observe(store, rows, complete = false) {
   const previous = store.metaGet(KEY);
@@ -392,6 +392,16 @@ function commitMutation(mutation, row, idField = 'id') {
           metaSet('outreach:receipt-origin:' + String(saved.id).replace(/^local_/, '') + ':' + receipt.id, true);
       }
     }
+    if (mutation.table === 'billing' && mutation.op === 'insert') {
+      const id = String(saved[idField]).replace(/^local_/, '');
+      if (mutation.historicalImport === true) {
+        if (cacheGetRow('billing', id) || cacheGetRow('billing', 'local_' + id)) {
+          throw Error('यह पुराना invoice पहले import हो चुका है। नया preview खोलें।');
+        }
+      } else {
+        metaSet('whatsapp:bill-origin:' + id, true);
+      }
+    }
     if (mutation.table === 'patients' && mutation.op === 'insert') {
       saved = registration.allocate(module.exports, saved);
       mutation = { ...mutation, payload: { ...mutation.payload, registration_number: saved.registration_number } };
@@ -424,7 +434,7 @@ function restoreSnapshot(dump) {
     for (const m of dump.queue) { const id = queueAdd(m); queueUpdate(id, { ...m, id }); }
     for (const m of dump.meta || []) getDb().prepare('INSERT OR REPLACE INTO meta VALUES (?, ?)').run(m.key,m.value);
     // Restoring an old backup must not reuse a number consumed after that backup.
-    getDb().prepare("DELETE FROM meta WHERE key LIKE 'patient-registration:%'").run();
+    getDb().prepare("DELETE FROM meta WHERE key LIKE 'patient-registration:%' OR key LIKE 'whatsapp:bill-origin:%'").run();
     metaSet("_legacy_migrated", true);
     return true;
   })();

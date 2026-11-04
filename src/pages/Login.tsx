@@ -1,13 +1,14 @@
 import { queryClient } from "@/lib/queryClient";
-import { saveClinicProfile } from "@/lib/clinicProfile";
+import { CLINIC_PROFILE_KEY, getClinicProfile, saveClinicProfile } from "@/lib/clinicProfile";
 import { migrateLegacyIndexedDbIfNeeded } from "@/lib/offlineDb";
 import { startAutoSync } from "@/lib/offlineSync";
 import { startAutoBackupScheduler } from "@/lib/backup";
 import { useState, useEffect } from "react";
-import { Eye, EyeOff, User, Lock, Phone, LogIn } from "lucide-react";
+import { Eye, EyeOff, User, Lock, LogIn } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useToast } from "@/hooks/use-toast";
 import { serverConnection, supabase } from "@/integrations/supabase/client";
+import { clearMobileServerConnection } from "@/lib/mobileServerConnection";
 import { MobileServerSetup } from "@/components/MobileServerSetup";
 import "./login.css";
 
@@ -51,7 +52,8 @@ export default function Login() {
     startAutoSync();
     if (profile.role === "admin") startAutoBackupScheduler();
     setPassword(""); setConfirmPassword("");
-    navigate(profile.role === "admin" ? "/dashboard" : profile.pages[0] || "/dashboard", { replace: true });
+    const firstSetup = bridge?.clinicProfile && profile.localAdmin && !getClinicProfile().name;
+    navigate(firstSetup ? "/settings" : profile.role === "admin" ? "/dashboard" : profile.pages[0] || "/dashboard", { replace: true });
   };
 
   useEffect(() => {
@@ -128,6 +130,21 @@ export default function Login() {
       setLoading(false);
     }
   };
+  async function changeMobileServer() {
+    if (desktop || loading || !window.confirm("इस फोन से मौजूदा clinic connection हटाएँ? Server के रिकॉर्ड सुरक्षित रहेंगे।")) return;
+    setLoading(true);
+    try {
+      const { error } = await supabase.auth.signOut({ scope: "local" });
+      if (error) throw error;
+      clearMobileServerConnection();
+      localStorage.removeItem(CLINIC_PROFILE_KEY);
+      localStorage.removeItem("bocc_selected_branch");
+      window.location.reload();
+    } catch {
+      setSetupError("पुराना login बंद नहीं हुआ। इंटरनेट जाँचकर फिर कोशिश करें।");
+    } finally { setLoading(false); }
+  }
+
   const saveFirstPassword = async (event: React.FormEvent) => {
     event.preventDefault();
     setLoading(true);
@@ -148,9 +165,9 @@ export default function Login() {
       <div className="bj-login-layout">
         <img
           className="bj-login-poster"
-          src="./bj-opd-background.webp"
-          width={1672}
-          height={941}
+          src="./bj-opd-icon.png"
+          width={512}
+          height={512}
           alt="BJ OPD Clinic Management Software — OPD, Digital X-Ray, Ortho Care, Billing, SMS and WhatsApp"
         />
         <div className="bj-login-card">
@@ -206,14 +223,17 @@ export default function Login() {
             </div>}
             {setupError && <p role="alert" style={{ color: "#b91c1c" }}>{setupError}</p>}
 
+            {!desktop && <p className="mb-3 text-sm text-muted-foreground">मोबाइल companion के लिए इंटरनेट और clinic server ज़रूरी हैं। Offline billing और messaging setup Windows EXE में करें।</p>}
             {!desktop && !serverConnection.url && <MobileServerSetup />}
+            {!desktop && serverConnection.url && <button type="button" disabled={loading}
+              className="mb-3 text-sm text-blue-700 underline" onClick={() => void changeMobileServer()}>Clinic server बदलें</button>}
             {changeToken ? (
               <form onSubmit={saveFirstPassword} style={{ display: "grid", gap: 12 }}>
                 <strong>First login: Apni ID aur password set karein</strong>
                 <p>Temporary login ko ab badalna zaroori hai.</p>
                 <label>New login ID<input type="text" required value={nextIdentifier} onChange={e => setNextIdentifier(e.target.value)} className="w-full border p-2 rounded" /></label>
-                <label>New password (8+ characters)<input type="password" minLength={8} maxLength={256} required value={nextSecret} onChange={e => setNextSecret(e.target.value)} className="w-full border p-2 rounded" /></label>
-                <label>Confirm new password<input type="password" minLength={8} required value={nextConfirm} onChange={e => setNextConfirm(e.target.value)} className="w-full border p-2 rounded" /></label>
+                <label>New PIN (4 digits) or password (8+ characters)<input type="password" minLength={4} maxLength={256} required value={nextSecret} onChange={e => setNextSecret(e.target.value)} className="w-full border p-2 rounded" /></label>
+                <label>Confirm PIN or password<input type="password" minLength={4} required value={nextConfirm} onChange={e => setNextConfirm(e.target.value)} className="w-full border p-2 rounded" /></label>
                 <button type="submit" disabled={loading || nextSecret !== nextConfirm} className="bg-blue-700 text-white rounded p-3">Save ID & Password</button>
               </form>
             ) : (desktop || serverConnection.url) && <form onSubmit={handleLogin} style={{ display: "flex", flexDirection: "column", gap: "14px" }}>
@@ -277,8 +297,8 @@ export default function Login() {
               </div>
 
               {mode === "local" && !configured && !(username.trim().toLowerCase() === "admin" && password === "admin") && <label style={{ fontSize: 12, fontWeight: 600 }}>
-                Password dobara dalein
-                <input aria-label="Confirm password" type="password" value={confirmPassword} onChange={e => setConfirmPassword(e.target.value)} autoComplete="new-password" required minLength={8}
+                4-digit PIN ya 8+ character password dobara dalein
+                <input aria-label="Confirm password" type="password" value={confirmPassword} onChange={e => setConfirmPassword(e.target.value)} autoComplete="new-password" required minLength={4}
                   style={{ width: "100%", height: 42, border: "1px solid #d5dde8", borderRadius: 8, padding: 10, marginTop: 6 }} />
               </label>}
               {mode === "local" && <label style={{ fontSize: 12, color: "#334155" }}>
@@ -321,13 +341,6 @@ export default function Login() {
               </button>
             </form>}
 
-            <div style={{
-              marginTop: "18px", display: "flex", alignItems: "center",
-              justifyContent: "center", gap: "5px", color: "#8a9ab0", fontSize: "11px",
-            }}>
-              <Phone style={{ width: "12px", height: "12px" }} />
-              Contact: +91 8005707783
-            </div>
           </div>
         </div>
       </div>

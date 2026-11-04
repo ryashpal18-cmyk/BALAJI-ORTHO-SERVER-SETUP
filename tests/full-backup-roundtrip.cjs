@@ -9,4 +9,17 @@ const loaded=new Map();function load(file){file=path.resolve(root,file);if(loade
 (async()=>{const backup=load('src/lib/backup.ts'),one=backup.runBackupNow('synthetic'),two=backup.runBackupNow('overlap');assert.equal(one,two);const result=await one;assert.equal(result.ok,true);assert.equal(result.attachmentCount,1);assert.equal(result.attachmentMissing,0);const parsed=JSON.parse(json);assert.equal(parsed.formatVersion,3);assert.equal(parsed.attachmentFiles.files[0].base64,bytes.toString('base64'));assert.match(parsed.tables.xray_reports[0].file_url,/^balaji-attachment:/);assert.equal(json.split(bytes.toString('base64')).length-1,1);assert.equal(parsed.tables.billing[0].amount_paid,300);const workbook=XLSX.read(Buffer.from(binary,'base64'),{type:'buffer'});const xray=XLSX.utils.sheet_to_json(workbook.Sheets.xray_reports)[0];assert.match(xray.file_url,/JSON/);const info=backup.inspectBackup(json);assert.equal(info.attachments,1);console.log('PASS full backup saves photo bytes plus financial rows; concurrent calls share one backup; Excel handles large inline photos safely');
  current={cache:{},queue:[],meta:[]};await backup.restoreBackup(json);assert.equal(writes,1);assert.equal(savedDump.cache.xray_reports[0].file_url,uri);assert.equal(savedDump.cache.billing[0].amount_paid,300);assert.equal(savedDump.queue[0].payload.deliveryState,'unconfirmed');assert.equal(savedDump.queue[1].payload.fileBase64,bytes.toString('base64'));assert.ok(JSON.parse(savedDump.meta.find(m=>m.key==='outreach:v1').value).seen.includes('b:r'));await assert.rejects(()=>backup.restoreBackup(json),/खाली/);assert.equal(writes,1);console.log('PASS full JSON restores image bytes and receipts offline on an empty database; existing records cannot be overwritten');
  current={cache:{},queue:[],meta:[]};parsed.attachmentFiles.files[0].sha256='0'.repeat(64);await assert.rejects(()=>backup.restoreBackup(JSON.stringify(parsed)),/checksum/);assert.equal(writes,1);const missing=JSON.parse(json);missing.tables.xray_reports[0].file_url='balaji-attachment:'+'0'.repeat(64);await assert.rejects(()=>backup.restoreBackup(JSON.stringify(missing)),/reference/);assert.equal(writes,1);console.log('PASS corrupted photo aborts full restore before any database writes');
+ const bridge=globals.window.electron, oldJson=json, oldBinary=binary;
+ await assert.rejects(()=>backup.runBackupNow('daily'),/Encrypted backup/);
+ bridge.backupWriteEncrypted=async data=>{
+  assert.equal(data.automatic,true);assert.equal(data.passphrase,undefined);
+  assert.match(data.fileName,/\.bjbackup$/);
+  return {success:true,path:'synthetic.bjbackup'};
+ };
+ assert.equal((await backup.runBackupNow('weekly')).ok,true);
+ assert.equal(json,oldJson);assert.equal(binary,oldBinary);
+ stubs['@/integrations/supabase/client'].serverConnection={url:'https://test.supabase.co'};
+ await assert.rejects(()=>backup.restoreBackup(oldJson),/server पहचान/);
+ assert.equal(writes,1);
+ console.log('PASS scheduled backup requires encryption and unbound pending restore is blocked on connected clinics');
 })().catch(e=>{console.error(e);process.exitCode=1;});

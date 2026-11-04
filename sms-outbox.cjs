@@ -39,7 +39,7 @@ function createSmsSender({ store, fetchImpl = fetch, timeoutMs = 15000, logger }
       if (prior && prior.fingerprint !== fingerprint) return { ok: false, uncertain: true, error: 'SMS request identity conflict' };
       if (prior?.state === 'accepted') return { ok: true, acceptedAt: prior.acceptedAt };
       if (prior && ['dispatching', 'uncertain'].includes(prior.state)) return { ok: false, uncertain: true, error: 'SMS delivery unconfirmed; check gateway before resending' };
-      if (!apiUrl || !apiKey || !deviceId) return { ok: false, error: 'SMS gateway configuration missing' };
+      if (!apiUrl || !apiKey || !deviceId) return { ok: false, error: 'SMS gateway जोड़ें — Settings → Messaging' };
       let url; try { url = new URL(apiUrl); } catch { return { ok: false, error: 'Invalid SMS gateway URL' }; }
       if (url.protocol !== 'https:') return { ok: false, error: 'SMS gateway requires HTTPS' };
       const digits = String(mobile || '').replace(/\D/g, '');
@@ -50,8 +50,8 @@ function createSmsSender({ store, fetchImpl = fetch, timeoutMs = 15000, logger }
       let timer;
       try {
         const response = await Promise.race([
-          fetchImpl(apiUrl, { method: 'POST', headers: { 'Content-Type': 'application/json', 'x-api-key': apiKey },
-            body: JSON.stringify({ deviceId, recipients: [num], message }), signal: controller.signal }),
+          fetchImpl(apiUrl, { method: 'POST', redirect: 'error', headers: { 'Content-Type': 'application/json', 'x-api-key': apiKey },
+            body: JSON.stringify({ deviceId, recipients: ['+' + num], message }), signal: controller.signal }),
           new Promise((_, reject) => { timer = setTimeout(() => { controller.abort(); reject(new Error('SMS request timed out')); }, timeoutMs); }),
         ]);
         if (!response.ok) {

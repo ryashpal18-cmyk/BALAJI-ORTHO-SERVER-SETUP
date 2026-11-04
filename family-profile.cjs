@@ -9,11 +9,11 @@ function familyNumber(value) {
 function familyLink(id) {
   const value = normId(id);
   if (!/^[a-zA-Z0-9_-]{1,100}$/.test(value)) throw Error('Invalid patient reference');
-  return 'balajiclinic://family/' + value;
+  return 'balajiserversetup://family/' + value;
 }
 function parseFamilyLink(value) {
   if(typeof value!=='string')return null;
-  return value.match(/^balajiclinic:\/\/family\/([a-zA-Z0-9_-]{1,100})$/)?.[1] || null;
+  return value.match(/^balajiserversetup:\/\/family\/([a-zA-Z0-9_-]{1,100})$/)?.[1] || null;
 }
 
 function uniqueRows(rows) {

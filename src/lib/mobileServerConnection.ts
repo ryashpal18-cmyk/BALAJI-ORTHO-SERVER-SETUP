@@ -9,7 +9,11 @@ export function readMobileServerConnection(): { url: string; key: string; name: 
   }
 }
 
-export function saveMobileServerConnection(projectUrl: string, key: string) {
+export function clearMobileServerConnection() {
+  localStorage.removeItem(storageKey);
+}
+
+export async function saveMobileServerConnection(projectUrl: string, key: string) {
   if (readMobileServerConnection()) {
     throw new Error("To change clinics, clear this app's data before connecting a new server.");
   }
@@ -23,11 +27,17 @@ export function saveMobileServerConnection(projectUrl: string, key: string) {
   if (!publicKey) {
     try {
       const payload = key.split(".")[1].replace(/-/g, "+").replace(/_/g, "/");
-      publicKey = JSON.parse(atob(payload)).role === "anon";
+      const claims = JSON.parse(atob(payload));
+      publicKey = claims.role === "anon" && claims.ref === url.hostname.split(".")[0];
     } catch {
       publicKey = false;
     }
   }
   if (!publicKey) throw new Error("Enter the publishable or legacy anon key from your Supabase project.");
+  const response = await fetch(url.origin + "/auth/v1/settings", {
+    headers: { apikey: key }, signal: AbortSignal.timeout(10000), redirect: "error",
+  }).catch(() => null);
+  if (!response?.ok) throw new Error("कनेक्शन जाँच असफल। इंटरनेट, Project URL और public key जाँचें।");
+  if (readMobileServerConnection()) throw new Error("Server connection already saved.");
   localStorage.setItem(storageKey, JSON.stringify({ url: url.origin, key, name: url.hostname }));
 }

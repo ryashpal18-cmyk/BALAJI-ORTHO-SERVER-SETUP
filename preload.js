@@ -5,9 +5,21 @@ const { contextBridge, ipcRenderer } = require('electron');
 contextBridge.exposeInMainWorld('electron', {
   server: { publicConfig: () => ipcRenderer.sendSync('server:publicConfig'), check: input => ipcRenderer.invoke('server:check', input), provision: input => ipcRenderer.invoke('server:provision', input), connect: input => ipcRenderer.invoke('server:connect', input), restart: () => ipcRenderer.invoke('server:restart') },
 
+  messaging: {
+    billSmsEnabled: () => ipcRenderer.invoke('messaging:billSmsEnabled'),
+    setBillSmsEnabled: enabled => ipcRenderer.invoke('messaging:setBillSmsEnabled', enabled),
+    smsStatus: () => ipcRenderer.invoke('messaging:smsStatus'),
+    smsConnect: input => ipcRenderer.invoke('messaging:smsConnect', input),
+    smsDisconnect: () => ipcRenderer.invoke('messaging:smsDisconnect'),
+    testSms: mobile => ipcRenderer.invoke('messaging:testSms', mobile),
+  },
+
   family: {list: () => ipcRenderer.invoke('family:list'), profile: id => ipcRenderer.invoke('family:profile', id)},
   whatsapp: {
     status: () => ipcRenderer.invoke('whatsapp:status'),
+    apiStatus: () => ipcRenderer.invoke('whatsapp:apiStatus'),
+    apiConnect: input => ipcRenderer.invoke('whatsapp:apiConnect', input),
+    useQr: () => ipcRenderer.invoke('whatsapp:useQr'),
     connect: () => ipcRenderer.invoke('whatsapp:connect'),
     disconnect: () => ipcRenderer.invoke('whatsapp:disconnect'),
     setAuto: value => ipcRenderer.invoke('whatsapp:auto', value),
@@ -39,7 +51,6 @@ contextBridge.exposeInMainWorld('electron', {
     change: (id,action) => ipcRenderer.invoke('festival:change', {id,action}),
     review: (id,jobId,action) => ipcRenderer.invoke('festival:review', {id,jobId,action}),
     exclude: numbers => ipcRenderer.invoke('festival:exclude', numbers),
-    configureSMS: config => ipcRenderer.invoke('festival:smsConfig', config),
   },
 
   monthly: {
@@ -88,6 +99,8 @@ contextBridge.exposeInMainWorld('electron', {
   getFractureCases:   ()     => ipcRenderer.invoke('db:getFractureCases'),
   updateFractureCase: (data) => ipcRenderer.invoke('db:updateFractureCase', data),
 
+  clinicSyncState: () => ipcRenderer.invoke('clinic:syncState'),
+  acceptClinicCloud: data => ipcRenderer.invoke('clinic:acceptCloud', data),
   clinicProfile: () => ipcRenderer.invoke('clinic:profile'),
   saveClinicProfile: data => ipcRenderer.invoke('clinic:saveProfile', data),
   // ── Settings ────────────────────────────────────────────────
@@ -146,6 +159,9 @@ contextBridge.exposeInMainWorld('electron', {
 
   // ── Backup ─────────────────────────────────────────────────
   backupGetDir:       ()      => ipcRenderer.invoke('backup:getDir'),
+  backupSetAutomaticPassword: password => ipcRenderer.invoke('backup:setAutomaticPassword', password),
+  backupWriteEncrypted: data => ipcRenderer.invoke('backup:writeEncrypted', data),
+  backupDecrypt: data => ipcRenderer.invoke('backup:decrypt', data),
   backupWriteJson:    (data)  => ipcRenderer.invoke('backup:writeJson', data),
   backupWriteBinary:  (data)  => ipcRenderer.invoke('backup:writeBinary', data),
   backupList:         ()      => ipcRenderer.invoke('backup:list'),

@@ -18,7 +18,6 @@ import { supabase } from "@/integrations/supabase/client";
 import { useState, useEffect } from "react";
 import { useLocation } from "react-router-dom";
 import { toast } from "@/hooks/use-toast";
-import AIXrayReport from "@/components/AIXrayReport";
 
 const typeIcon: Record<string, string> = {
   "X-Ray": "bg-primary/10 text-primary",
@@ -105,7 +104,6 @@ export default function Reports() {
   return (
     <DashboardLayout>
       <div className="space-y-6 page-enter">
-        <AIXrayReport />
 
         <Card>
           <CardHeader>

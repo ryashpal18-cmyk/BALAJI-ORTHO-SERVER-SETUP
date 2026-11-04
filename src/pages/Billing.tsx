@@ -1,3 +1,4 @@
+import { getClinicProfile } from "@/lib/clinicProfile";
 import { requireClinicProfile } from "@/lib/clinicProfile";
 import { billCareCategory, buildBillWelcomeMessage } from "@/lib/billSmsMessage";
 import { cashTallyForPeriod } from "@/lib/collectionReport";
@@ -71,7 +72,7 @@ import { getServiceCatalog, learnServiceItems, serviceSearchKey } from "@/lib/ap
 import { useAddFractureCase } from "@/hooks/useOrtho";
 import { useDoctors } from "@/hooks/useDoctors";
 import {
-  DEFAULT_COMMISSION_PERCENT, DEFAULT_DOCTOR_NAME, DEFAULT_DOCTOR_VALUE,
+  DEFAULT_COMMISSION_PERCENT, DEFAULT_DOCTOR_VALUE,
   isXrayService, normId,
 } from "@/lib/doctors";
 
@@ -140,7 +141,7 @@ function buildInvoiceHTML(bill: any, logoUrl: string = "/bj-opd-icon.png") {
   const patientName = escapeHtml((bill.patients as any)?.name || "Patient");
   const patientAge = (bill.patients as any)?.age || "—";
   const patientGender = (bill.patients as any)?.gender || "—";
-  const invoiceNo = invoiceNumber(bill.id);
+  const invoiceNo = invoiceNumber(bill.id, bill.invoice_number);
   const _dateObj = bill.created_at ? new Date(bill.created_at) : new Date();
   const date = (!bill.created_at || isNaN(_dateObj.getTime()) ? new Date() : _dateObj).toLocaleDateString("en-IN", {
     day: "2-digit",
@@ -284,10 +285,10 @@ async function printInvoice(bill: any) {
   const logoUrl = window.location.origin + "/bj-opd-icon.png";
   const win = window.open("", "_blank", "width=900,height=700");
   if (!win) return;
-  try { bill = {...bill, familyQr:await QRCode.toDataURL("balajiclinic://family/"+String(bill.patient_id).replace(/^local_/,""),{width:180,margin:4})}; } catch {win.close();toast({title:"QR नहीं बना; दोबारा कोशिश करें",variant:"destructive"});return;}
+  try { bill = {...bill, familyQr:await QRCode.toDataURL("balajiserversetup://family/"+String(bill.patient_id).replace(/^local_/,""),{width:180,margin:4})}; } catch {win.close();toast({title:"QR नहीं बना; दोबारा कोशिश करें",variant:"destructive"});return;}
   const invoiceHTML = `<!DOCTYPE html><html><head><meta charset="utf-8"/><title>Invoice – ${(bill.patients as any)?.name || "Patient"}</title>
     <style>
-      @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap');
+
       * { margin: 0; padding: 0; box-sizing: border-box; }
       body { font-family: 'Inter', sans-serif; background: #f8fafc; }
       @page { size: A4 landscape; margin: 8mm; }
@@ -340,10 +341,10 @@ async function previewInvoice(bill: any) {
   const logoUrl = window.location.origin + "/bj-opd-icon.png";
   const win = window.open("", "_blank", "width=700,height=900");
   if (!win) return;
-  try { bill = {...bill, familyQr:await QRCode.toDataURL("balajiclinic://family/"+String(bill.patient_id).replace(/^local_/,""),{width:180,margin:4})}; } catch {win.close();toast({title:"QR नहीं बना; दोबारा कोशिश करें",variant:"destructive"});return;}
+  try { bill = {...bill, familyQr:await QRCode.toDataURL("balajiserversetup://family/"+String(bill.patient_id).replace(/^local_/,""),{width:180,margin:4})}; } catch {win.close();toast({title:"QR नहीं बना; दोबारा कोशिश करें",variant:"destructive"});return;}
   const html = `<!DOCTYPE html><html><head><meta charset="utf-8"/><title>Preview – ${(bill.patients as any)?.name || "Patient"}</title>
     <style>
-      @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
+
       * { margin: 0; padding: 0; box-sizing: border-box; }
       body { font-family: 'Inter', sans-serif; background: #f1f5f9; display:flex; justify-content:center; padding:20px; }
     </style></head><body>${buildInvoiceHTML(bill, logoUrl)}</body></html>`;
@@ -363,7 +364,7 @@ async function getBase64Image(url: string): Promise<string> {
 
 async function generateAndUploadPDF(bill: any): Promise<string | null> {
   const logoUrl = await getBase64Image(window.location.origin + "/bj-opd-icon.png");
-  bill = {...bill, familyQr:await QRCode.toDataURL("balajiclinic://family/"+String(bill.patient_id).replace(/^local_/,""),{width:180,margin:4})};
+  bill = {...bill, familyQr:await QRCode.toDataURL("balajiserversetup://family/"+String(bill.patient_id).replace(/^local_/,""),{width:180,margin:4})};
   const html = buildInvoiceHTML(bill, logoUrl);
 
   // ✅ Container bilkul screen se bahar rakho — white screen nahi aayegi
@@ -420,7 +421,7 @@ async function generateAndUploadPDF(bill: any): Promise<string | null> {
       .from(container)
       .outputPdf("blob");
 
-    const invoiceNo = invoiceNumber(bill.id);
+    const invoiceNo = invoiceNumber(bill.id, bill.invoice_number);
     const fileName = `${String(bill.patient_id).replace(/^local_/, "")}/${invoiceNo}-${Date.now()}.pdf`;
 
     // PDF upload sirf online ho tab karo — offline ho to silently skip
@@ -470,7 +471,6 @@ export default function Billing() {
   const [amountPaid, setAmountPaid] = useState("");
   const [discountAmount, setDiscountAmount] = useState("");
   const [paymentMode, setPaymentMode] = useState("");
-  // Doctor: default hamesha Dr. S. S. Rathore. Dusra doctor chune par hi bill par doctor fields jaate hain.
   const [doctorChoice, setDoctorChoice] = useState(DEFAULT_DOCTOR_VALUE);
   const [isSending, setIsSending] = useState(false);
   const creatingBill = useRef(false);
@@ -752,7 +752,7 @@ const filteredPatients = useMemo(() => {
       patientName,
       netBillAmount(bill),
       Number((bill as any).amount_paid || 0),
-      invoiceNumber(bill.id),
+      invoiceNumber(bill.id, bill.invoice_number),
       safeDate(bill.created_at),
       freshPdfUrl || null,
     );
@@ -845,7 +845,7 @@ const filteredPatients = useMemo(() => {
           patientName,
           Math.max(newTotal - discountNum, 0),
           paidNum,
-          invoiceNumber(editingBill.id),
+          invoiceNumber(editingBill.id, editingBill.invoice_number),
           safeDate(editingBill.created_at),
           (updatedBill as any).invoice_pdf_url || null,
         );
@@ -1002,7 +1002,7 @@ const filteredPatients = useMemo(() => {
           <SelectValue />
         </SelectTrigger>
         <SelectContent>
-          <SelectItem value={DEFAULT_DOCTOR_VALUE}>{DEFAULT_DOCTOR_NAME} (Default)</SelectItem>
+          <SelectItem value={DEFAULT_DOCTOR_VALUE}>{getClinicProfile().doctor || "Default Doctor"} (Default)</SelectItem>
           {doctorOptions.map((d) => (
             <SelectItem key={d.id} value={normId(d.id)}>
               {d.name} — X-Ray {d.commission_percent}%

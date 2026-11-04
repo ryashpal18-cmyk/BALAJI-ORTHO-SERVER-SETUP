@@ -5,7 +5,7 @@ let bills=[{id:'bill',patient_id:'a',amount:1000,discount:100,amount_paid:100,cr
 const meta=new Map(),store={metaGet:k=>structuredClone(meta.get(k)),metaSet:(k,v)=>meta.set(k,structuredClone(v)),cacheGetAll:t=>t==='billing'?bills:[],patientDirectoryRows:()=>patients};
 const options={store,allowed:()=>authorized,now:()=>clock,intervalMs:0,whatsapp:{status:()=>({ready}),sendText:async(m,t)=>{calls.push(['wa',m,t]);return mode==='timeout'?{ok:false,uncertain:true,error:'timeout'}:{ok:true};}},sendSMS:async x=>{calls.push(['sms',x.mobile,x.message]);return{ok:true};}};
 const config={apiUrl:'https://synthetic.invalid',apiKey:'synthetic',deviceId:'synthetic'};
-let service=createOutreachService(options);service.configureSMS(config);
+let service=createOutreachService(options);service.configureSMS(config);service.setReceiptSettings({enabled:true,channels:['whatsapp','sms']});
 const input=()=>({requestId:'synthetic-request-123',title:'Village A',patientIds:['a','b','invalid'],channels:['whatsapp','sms'],whatsapp:'Namaste [NAME]',sms:'Hello [NAME]'});
 const queue=i=>service.enqueueBulk({...i,fingerprint:service.previewBulk(i).fingerprint});
 const pass=s=>{passes++;console.log('PASS '+s);};
