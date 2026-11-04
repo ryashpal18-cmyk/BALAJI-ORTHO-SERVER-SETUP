@@ -83,8 +83,15 @@ export default function Login() {
       resetCloudConnection();
       if (desktop && mode === "local") {
         const args = { identifier: username, secret: password, confirmSecret: confirmPassword, remember };
-        const result = configured ? await bridge.offlineLogin(args) : await bridge.offlineSetup(args);
+        const useDefault = !configured && username.trim().toLowerCase() === "admin" && password === "admin";
+        const result = configured || useDefault ? await bridge.offlineLogin(args) : await bridge.offlineSetup(args);
         if (!result?.success) throw new Error(result?.error || "Local login failed");
+        if (result.requiresPasswordChange) {
+          setChangeToken(result.changeToken);
+          setNextIdentifier("admin");
+          setPassword("");
+          return;
+        }
         await enter(result.principal);
         return;
       }
