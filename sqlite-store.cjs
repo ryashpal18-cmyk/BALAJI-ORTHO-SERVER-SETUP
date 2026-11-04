@@ -23,7 +23,7 @@ const registration = (() => {
 // A primary clinic PC allocates offline numbers only after one complete,
 // numbered cloud snapshot has initialized its durable high-water mark.
 const KEY = 'patient-registration:last-number';
-const serial = value => /^BAOR\d{4,}$/.test(String(value || '')) ? Number(String(value).slice(4)) : 0;
+const serial = value => Number(/^[A-Z]{2,12}(\d{4,16})$/.exec(String(value || ""))?.[1] || 0);
 const format = n => 'BAOR' + String(n).padStart(4, '0');
 function observe(store, rows, complete = false) {
   const previous = store.metaGet(KEY);

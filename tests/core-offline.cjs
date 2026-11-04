@@ -34,14 +34,14 @@ const offline=load('src/lib/offlineQuery.ts',['offlineInsert','offlineUpdate','o
 const {normalizeBill}=require('./audit-fixtures.cjs');
 const invoice=load('src/lib/invoiceNumber.ts',['invoiceNumber']);
 const sms=load('src/lib/billSmsMessage.ts',['buildBillSmsMessage'],{requireClinicProfile:()=>({name:'Synthetic Clinic'})});
-const save=load('src/lib/saveBillOffline.ts',['saveBillOffline'],{...db,...payment,...invoice,...sms,normalizeBill,normalizeIndianMobile:x=>'91'+x,isValidMobile:x=>/^\d{10}$/.test(x),runSync:async()=>{}}).saveBillOffline;
+const save=load('src/lib/saveBillOffline.ts',['saveBillOffline'],{...db,...payment,...invoice,...sms,getClinicProfile:()=>({invoice_prefix:"TEST"}),normalizeBill,normalizeIndianMobile:x=>'91'+x,isValidMobile:x=>/^\d{10}$/.test(x),runSync:async()=>{}}).saveBillOffline;
 function expression(file,name) { const text=fs.readFileSync(root+'/'+file,'utf8'),ast=ts.createSourceFile(file,text,ts.ScriptTarget.Latest,true,ts.ScriptKind.TSX);let out;function walk(n){if(ts.isVariableDeclaration(n)&&n.name.getText(ast)===name)out=n.initializer;ts.forEachChild(n,walk)}walk(ast);return {node:out,ast}; }
 function evaluate(code,ctx){return vm.runInNewContext(ts.transpile('const result = '+code+';',{target:ts.ScriptTarget.ES2022})+'result',ctx)}
 (async()=>{
  const patient={id:'local_00000000-0000-4000-8000-000000000111',name:'Test Patient',mobile:'9123456780',branch_id:'branch-test'};store.cacheUpsertRow('patients',patient,'id');
  const input={patient_id:patient.id,amount:1000,discount:200,amount_paid:300,service:'Consultation:1000'};
  failQueueAt=2;await assert.rejects(()=>save(input),/disk/);assert.equal(store.cacheGetAll('billing').length,0);assert.equal(store.cacheGetAll('sms_logs').length,0);assert.equal(store.queueGetAll().length,0);
- failQueueAt=0;const saved=await save(input);assert.equal(saved.smsQueued,true);assert.equal(store.queueGetAll().length,2);assert.match(store.queueGetAll().find(q=>q.op==='sms').payload.message,/हार्दिक स्वागत है/);assert.equal(saved.payment_history[0].amount,300);
+ failQueueAt=0;const saved=await save(input);assert.equal(saved.smsQueued,true);assert.match(saved.invoice_number,/^TEST-/);assert.match(store.queueGetAll().find(q=>q.op==='sms').payload.message,/TEST-/);assert.equal(store.queueGetAll().length,2);assert.match(store.queueGetAll().find(q=>q.op==='sms').payload.message,/हार्दिक स्वागत है/);assert.equal(saved.payment_history[0].amount,300);
  store.close();store.init(testDir);assert.equal(store.cacheGetAll('billing').length,1);assert.equal(store.queueGetAll().length,2);console.log('PASS atomic bill/SMS rollback on second write failure, welcome message and payment history survive restart');
  // Bill pending cloud upload must not block its SMS lane.
  let sent=0;windowMock.electron.sendSMS=async()=>{sent++;return {ok:true}};

@@ -702,11 +702,11 @@ BEGIN
   PERFORM pg_advisory_xact_lock(821734, 1);
   IF NEW.registration_number IS NULL THEN
     n := nextval('public.patient_registration_seq'::regclass);
-    NEW.registration_number := 'BAOR' || lpad(n::text, greatest(4, length(n::text)), '0');
-  ELSIF NEW.registration_number !~ '^BAOR[0-9]{4,}$' THEN
+    NEW.registration_number := coalesce((SELECT registration_prefix FROM public.bjopd_clinic_profile WHERE id), 'BAOR') || lpad(n::text, greatest(4, length(n::text)), '0');
+  ELSIF NEW.registration_number !~ '^[A-Z]{2,12}[0-9]{4,16}$' THEN
     RAISE EXCEPTION 'Invalid registration number';
   ELSE
-    n := substring(NEW.registration_number FROM 5)::bigint;
+    n := substring(NEW.registration_number FROM '[0-9]+$')::bigint;
     IF n < 1 THEN RAISE EXCEPTION 'Invalid registration serial'; END IF;
     PERFORM setval('public.patient_registration_seq'::regclass, greatest(n,
       (SELECT last_value FROM public.patient_registration_seq)), true);
@@ -740,7 +740,7 @@ BEGIN
   reserved := '[]'::jsonb;
   FOR i IN 1..p_count LOOP
     n := nextval('public.patient_registration_seq');
-    reserved := reserved || jsonb_build_array('BAOR' || lpad(n::text, greatest(4, length(n::text)), '0'));
+    reserved := reserved || jsonb_build_array(coalesce((SELECT registration_prefix FROM public.bjopd_clinic_profile WHERE id), 'BAOR') || lpad(n::text, greatest(4, length(n::text)), '0'));
   END LOOP;
   INSERT INTO public.patient_registration_leases(request_id, user_id, device_id, numbers)
     VALUES (p_request, auth.uid(), p_device, reserved);
@@ -1180,5 +1180,25 @@ CREATE POLICY clinic_profile_update ON public.bjopd_clinic_profile FOR UPDATE TO
   USING (public.has_role((SELECT auth.uid()), 'admin'))
   WITH CHECK (public.has_role((SELECT auth.uid()), 'admin'));
 NOTIFY pgrst, 'reload schema';
+
+ALTER TABLE public.bjopd_clinic_profile
+  ADD COLUMN IF NOT EXISTS registration_prefix text NOT NULL DEFAULT 'BAOR' CHECK (registration_prefix ~ '^[A-Z]{2,12}$'),
+  ADD COLUMN IF NOT EXISTS invoice_prefix text NOT NULL DEFAULT 'INV' CHECK (invoice_prefix ~ '^[A-Z]{2,12}$');
+ALTER TABLE public.billing ADD COLUMN IF NOT EXISTS invoice_number text
+  CHECK (invoice_number ~ '^[A-Z]{2,12}-[0-9A-F-]{36}$');
+CREATE UNIQUE INDEX IF NOT EXISTS billing_invoice_number_unique ON public.billing(invoice_number) WHERE invoice_number IS NOT NULL;
+CREATE OR REPLACE FUNCTION public.keep_billing_invoice_number()
+RETURNS trigger LANGUAGE plpgsql SET search_path = '' AS $$
+BEGIN
+  IF OLD.invoice_number IS DISTINCT FROM NEW.invoice_number THEN
+    RAISE EXCEPTION 'Invoice number is permanent';
+  END IF;
+  RETURN NEW;
+END;
+$$;
+REVOKE ALL ON FUNCTION public.keep_billing_invoice_number() FROM PUBLIC;
+DROP TRIGGER IF EXISTS keep_billing_invoice_number ON public.billing;
+CREATE TRIGGER keep_billing_invoice_number BEFORE UPDATE OF invoice_number ON public.billing
+  FOR EACH ROW EXECUTE FUNCTION public.keep_billing_invoice_number();
 
 COMMIT;

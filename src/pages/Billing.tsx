@@ -141,7 +141,7 @@ function buildInvoiceHTML(bill: any, logoUrl: string = "/bj-opd-icon.png") {
   const patientName = escapeHtml((bill.patients as any)?.name || "Patient");
   const patientAge = (bill.patients as any)?.age || "—";
   const patientGender = (bill.patients as any)?.gender || "—";
-  const invoiceNo = invoiceNumber(bill.id);
+  const invoiceNo = invoiceNumber(bill.id, bill.invoice_number);
   const _dateObj = bill.created_at ? new Date(bill.created_at) : new Date();
   const date = (!bill.created_at || isNaN(_dateObj.getTime()) ? new Date() : _dateObj).toLocaleDateString("en-IN", {
     day: "2-digit",
@@ -421,7 +421,7 @@ async function generateAndUploadPDF(bill: any): Promise<string | null> {
       .from(container)
       .outputPdf("blob");
 
-    const invoiceNo = invoiceNumber(bill.id);
+    const invoiceNo = invoiceNumber(bill.id, bill.invoice_number);
     const fileName = `${String(bill.patient_id).replace(/^local_/, "")}/${invoiceNo}-${Date.now()}.pdf`;
 
     // PDF upload sirf online ho tab karo — offline ho to silently skip
@@ -752,7 +752,7 @@ const filteredPatients = useMemo(() => {
       patientName,
       netBillAmount(bill),
       Number((bill as any).amount_paid || 0),
-      invoiceNumber(bill.id),
+      invoiceNumber(bill.id, bill.invoice_number),
       safeDate(bill.created_at),
       freshPdfUrl || null,
     );
@@ -845,7 +845,7 @@ const filteredPatients = useMemo(() => {
           patientName,
           Math.max(newTotal - discountNum, 0),
           paidNum,
-          invoiceNumber(editingBill.id),
+          invoiceNumber(editingBill.id, editingBill.invoice_number),
           safeDate(editingBill.created_at),
           (updatedBill as any).invoice_pdf_url || null,
         );

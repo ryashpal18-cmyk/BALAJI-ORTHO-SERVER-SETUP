@@ -2,6 +2,7 @@ import { cacheGetAll, cacheGetRow, commitBatch, tempId } from './offlineDb';
 import { normalizeBill, withPaymentHistory } from './paymentLedger';
 import { normalizeIndianMobile } from './mobile';
 import { isValidMobile } from './utils';
+import { getClinicProfile } from './clinicProfile';
 import { invoiceNumber } from './invoiceNumber';
 import { runSync } from './offlineSync';
 import { buildBillSmsMessage } from './billSmsMessage';
@@ -15,8 +16,11 @@ export async function saveBillOffline(input: any) {
   const branch_id = input.branch_id || patient.branch_id || localStorage.getItem('bocc_selected_branch') ||
     (await cacheGetAll('branches')).filter(b => b.is_active).find((_, i, rows) => rows.length === 1)?.id;
   if (!branch_id) throw new Error('Select a branch before saving this bill');
+  const prefix = getClinicProfile().invoice_prefix;
+  const savedNumber = prefix && prefix !== 'INV' ? prefix + '-' + id.replace(/^local_/, '').toUpperCase() : undefined;
   const bill = withPaymentHistory({ id, amount_paid: 0 }, {
     ...normalizeBill(input), id, created_at, branch_id, patient_id: patient.id,
+    ...(savedNumber ? { invoice_number: savedNumber } : {}),
     patients: { name: patient.name || '', mobile: patient.mobile || '', address: patient.address || '' }, _pendingSync: true,
   }, crypto.randomUUID(), created_at);
   const items: any[] = [{ mutation: { table: 'billing', op: 'insert', tempId: id, payload: bill }, row: bill }];
@@ -28,7 +32,7 @@ export async function saveBillOffline(input: any) {
     const mobile = normalizeIndianMobile(patient.mobile);
     const net = Math.max(Number(bill.amount) - Number(bill.discount || 0), 0);
     const due = Math.max(net - Number(bill.amount_paid || 0), 0);
-    const message = buildBillSmsMessage({ patientName: patient.name, invoice: invoiceNumber(id), date: new Date(created_at).toLocaleDateString('en-IN'), service: bill.service, total: Number(bill.amount), discount: Number(bill.discount || 0), paid: Number(bill.amount_paid || 0), due });
+    const message = buildBillSmsMessage({ patientName: patient.name, invoice: invoiceNumber(id, savedNumber), date: new Date(created_at).toLocaleDateString('en-IN'), service: bill.service, total: Number(bill.amount), discount: Number(bill.discount || 0), paid: Number(bill.amount_paid || 0), due });
     const row = { id: messageId, patient_name: patient.name, mobile, message, status: 'pending', sms_type: 'bill_saved', sent_at: created_at, _pendingSync: true };
     items.push({ mutation: { table: 'sms_logs', op: 'sms', payload: { messageId, mobile, message, patientName: patient.name, smsType: 'bill_saved', billing_id: id } }, row });
   }

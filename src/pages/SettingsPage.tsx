@@ -74,6 +74,8 @@ export default function SettingsPage() {
   const [docName,    setDocName]    = useState(() => getClinicProfile().doctor);
   const [phone,      setPhone]      = useState(() => getClinicProfile().phone);
   const [address,    setAddress]    = useState(() => getClinicProfile().address);
+  const [registrationPrefix, setRegistrationPrefix] = useState(() => getClinicProfile().registration_prefix || "BAOR");
+  const [invoicePrefix, setInvoicePrefix] = useState(() => getClinicProfile().invoice_prefix || "INV");
 
   useEffect(() => {
     const bridge=(window as any).electron;
@@ -84,6 +86,7 @@ export default function SettingsPage() {
       if(p.name){
         saveClinicProfile(p);
         setClinicName(p.name);setDocName(p.doctor||'');setPhone(p.phone||'');setAddress(p.address||'');
+        setRegistrationPrefix(p.registration_prefix || 'BAOR');setInvoicePrefix(p.invoice_prefix || 'INV');
       }
     }).catch(()=>{});
     return ()=>{active=false;};
@@ -344,7 +347,7 @@ export default function SettingsPage() {
   const handleSaveClinic = async () => {
     if (!isAdmin || !(window as any).electron?.saveClinicProfile) return;
     try {
-      const proposed = {name:clinicName,doctor:docName,phone,address};
+      const proposed = {name:clinicName,doctor:docName,phone,address,registration_prefix:registrationPrefix || "BAOR",invoice_prefix:invoicePrefix || "INV"};
       const bridge = (window as any).electron;
       // The clinic server owns the settings on a desktop installation.
       const confirmed = bridge?.saveClinicProfile ? await bridge.saveClinicProfile(proposed) : proposed;
@@ -365,6 +368,7 @@ export default function SettingsPage() {
       await syncClinicProfile(true, true);
       const saved = getClinicProfile();
       setClinicName(saved.name); setDocName(saved.doctor); setAddress(saved.address); setPhone(saved.phone);
+      setRegistrationPrefix(saved.registration_prefix || "BAOR"); setInvoicePrefix(saved.invoice_prefix || "INV");
       toast({ title: "Server की Clinic Info लोड हुई" });
     } catch (error: any) {
       toast({ title: "Clinic Info sync नहीं हुई", description: error.message, variant: "destructive" });
@@ -571,6 +575,8 @@ export default function SettingsPage() {
                 { label: "Doctor Name",   value: docName,    set: setDocName },
                 { label: "Phone Number",  value: phone,      set: setPhone },
                 { label: "Address",       value: address,    set: setAddress },
+                { label: "Registration prefix (BAOR)", value: registrationPrefix, set: setRegistrationPrefix },
+                { label: "Invoice prefix (INV)", value: invoicePrefix, set: setInvoicePrefix },
               ].map(({ label, value, set }) => (
                 <div key={label} style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
                   <Label style={{ fontSize: "12px", fontWeight: 600 }}>{label}</Label>

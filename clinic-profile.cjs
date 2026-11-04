@@ -6,18 +6,22 @@ const defaultProfile = Object.freeze({name:'',doctor:'',phone:'',address:''});
 function normalize(input) {
   if(!input || typeof input !== 'object') throw Error('Clinic details are required');
   const p={name:clean(input.name,120),doctor:clean(input.doctor,100),phone:clean(input.phone,32),address:clean(input.address,240)};
+  for (const key of ['registration_prefix', 'invoice_prefix']) {
+    const prefix = input[key]?.trim?.().toUpperCase();
+    if (prefix && !/^[A-Z]{2,12}$/.test(prefix)) throw Error('Prefix must be 2–12 letters');
+    if (prefix) p[key] = prefix;
+  }
   if(p.name.length<3) throw Error('Clinic / Hospital name must contain at least 3 characters');
   return p;
 }
 function profile(store) {
   const p=store.metaGet(KEY);
-  if (!p || typeof p !== 'object') return {...defaultProfile};
-  const {name, doctor, phone, address} = p;
-  return {name, doctor, phone, address};
+  if (!p || typeof p !== 'object' || !p.name) return {...defaultProfile};
+  return normalize(p);
 }
 function saveProfile(store,input) {
-  const next = normalize(input);
   const previous = store.metaGet(KEY);
+  const next = normalize({...previous, ...input});
   store.metaSet(KEY, {...next, revision: previous?.revision ?? null, pending: randomUUID()});
   return next;
 }

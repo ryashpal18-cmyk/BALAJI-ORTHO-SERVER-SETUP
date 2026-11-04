@@ -21,3 +21,6 @@ Validation: local schema execution/RLS/registration/billing checks, mocked HTTP 
 
 ## PC और मोबाइल पर Clinic Info
 नए server setup में Clinic Info sync शामिल है। पुराने BJ OPD Server project पर पहले `docs/CLINIC_PROFILE_SYNC.sql` का staging पर परीक्षण करें, फिर उसी clinic project पर लागू करें। Windows Admin में Clinic Info सेव करें और Cloud Sync जोड़ें। Mobile उसी project में login होने पर नाम, डॉक्टर, फोन और पता पढ़ेगा। दो PC की offline edits टकराएँ तो Windows Settings में Server की Clinic Info लोड करें, फिर अपना बदलाव दोबारा सेव करें।
+
+## Registration और invoice prefix
+Windows Settings → Clinic Info में 2–12 अंग्रेजी अक्षरों का prefix सेव करें। पुराने server पर पहले `docs/CLINIC_PROFILE_SYNC.sql` और फिर `docs/CLINIC_NUMBERING.sql` का staging में परीक्षण करें। Invoice में पूरा UUID लगा रहता है। नया registration prefix अगले cloud allocation पर लागू होगा; पहले से reserve किए गए offline नंबर और पुराने जारी नंबर उसी तरह रहते हैं।

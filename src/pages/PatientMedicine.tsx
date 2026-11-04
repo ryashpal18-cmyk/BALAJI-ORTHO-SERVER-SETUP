@@ -51,7 +51,7 @@ export default function PatientMedicine() {
     const invoiceId = searchParams.get("invoiceId");
     if (!invoiceId || bills.length === 0) return;
     const found = bills.find((b: any) => 
-      invoiceNumber(b.id) === invoiceId
+      invoiceNumber(b.id, b.invoice_number) === invoiceId
     );
     if (found) setSelectedBill(found);
   }, [bills, searchParams]);
@@ -93,11 +93,11 @@ export default function PatientMedicine() {
     const request = ++entryRequest.current; setEntryReady(false);
     try {
       const [entries, mappings, allBills] = await Promise.all([cacheGetAll('medicine_entries'), cacheGetAll('invoice_medicine_mapping'), cacheGetAll('billing')]);
-      const aliases = legacyInvoiceNumbers(bill.id);
+      const aliases = legacyInvoiceNumbers(bill.id, bill.invoice_number);
       const matches = entries.filter(e => aliases.includes(e.invoice_no));
-      const exact = matches.filter(e => e.invoice_no === invoiceNumber(bill.id));
+      const exact = matches.filter(e => e.invoice_no === invoiceNumber(bill.id, bill.invoice_number));
       const selected = exact.length ? exact : matches;
-      if (selected.length > 1 || selected.some(e => e.invoice_no !== invoiceNumber(bill.id) && allBills.filter(b => legacyInvoiceNumbers(b.id).includes(e.invoice_no)).length !== 1)) {
+      if (selected.length > 1 || selected.some(e => e.invoice_no !== invoiceNumber(bill.id, bill.invoice_number) && allBills.filter(b => legacyInvoiceNumbers(b.id, b.invoice_number).includes(e.invoice_no)).length !== 1)) {
         throw new Error('पुराना invoice number एक से अधिक bills से मेल खाता है। Entry को review करें; कोई data बदला नहीं गया।');
       }
       if (request !== entryRequest.current) return;
@@ -124,7 +124,7 @@ export default function PatientMedicine() {
       toast({ title: "Bill select karo pehle", variant: "destructive" }); return;
     }
     setSaving(true);
-    const invoiceNo = invoiceNumber(selectedBill.id);
+    const invoiceNo = invoiceNumber(selectedBill.id, selectedBill.invoice_number);
 
     try {
       if (!entryReady || !selectedPatient || selectedBill.patient_id.replace(/^local_/, '') !== selectedPatient.id.replace(/^local_/, '')) throw new Error('Select and load the matching patient bill before saving');
@@ -219,7 +219,7 @@ export default function PatientMedicine() {
               ) : bills.length === 0 ? (
                 <p className="p-4 text-sm text-center text-muted-foreground">Koi bill nahi hai</p>
               ) : bills.map(b => {
-                const invoiceNo = invoiceNumber(b.id);
+                const invoiceNo = invoiceNumber(b.id, b.invoice_number);
                 return (
                   <button
                     key={b.id}

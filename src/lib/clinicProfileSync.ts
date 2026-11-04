@@ -17,7 +17,7 @@ async function performSync(admin: boolean, useCloud: boolean) {
   const bridge = (window as any).electron;
   const state: SyncState | undefined = admin && bridge?.clinicSyncState ? await bridge.clinicSyncState() : undefined;
   const table = () => (supabase as any).from("bjopd_clinic_profile");
-  const columns = "name,doctor,phone,address,revision";
+  const columns = "name,doctor,phone,address,registration_prefix,invoice_prefix,revision";
   const { data, error } = await table().select(columns).eq("id", true).maybeSingle();
   if (error) throw Error(error.message);
   let remote = data as CloudProfile | null;

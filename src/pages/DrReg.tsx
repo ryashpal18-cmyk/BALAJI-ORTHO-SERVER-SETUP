@@ -210,7 +210,7 @@ export default function DrReg() {
       const d = byId.get(doctorKey);
       rows.push({
         key: String(b.id), doctorKey, doctorName: d?.name || b.doctor_name || "Unknown Doctor",
-        date, invoice: invoiceNumber(b.id), patient: (b.patients as any)?.name || "—",
+        date, invoice: invoiceNumber(b.id, b.invoice_number), patient: (b.patients as any)?.name || "—",
         services: lines.map((l) => l.name).join(", "), amount,
         percent: Number(b.doctor_commission_percent ?? DEFAULT_COMMISSION_PERCENT),
         commission: billCommission(b),
