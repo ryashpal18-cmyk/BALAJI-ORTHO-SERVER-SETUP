@@ -5,6 +5,7 @@ const crypto = require('crypto');
 const fs = require('fs');
 const path = require('path');
 const MIN_SECRET = 8, MAX_SECRET = 256;
+const validLocalSecret = secret => typeof secret === 'string' && secret.length <= MAX_SECRET && (secret.length >= MIN_SECRET || /^[0-9]{4}$/.test(secret));
 const SCRYPT = { N: 32768, r: 8, p: 1, maxmem: 128 * 1024 * 1024 };
 const normalizeEmail = value => String(value || '').trim().toLowerCase();
 const deriveKey = (secret, salt) => new Promise((resolve, reject) =>
@@ -65,9 +66,8 @@ function createOffline({ file, safeStorage, access, now = Date.now, fetchCloud, 
       }
       const validIdentity = /^[a-z][a-z0-9._-]{2,63}$/.test(email) || /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
       const bootstrapLogin = !!record?.mustChange && email === 'admin' && secret === 'admin';
-      if (!validIdentity || email.length > 254 || typeof secret !== 'string'
-        || ((!bootstrapLogin && secret.length < MIN_SECRET) || secret.length > MAX_SECRET))
-        return { success: false, error: 'Sahi ID aur kam se kam 8 characters ka password dalein.' };
+      if (!validIdentity || email.length > 254 || (!bootstrapLogin && !validLocalSecret(secret)))
+        return { success: false, error: 'Sahi ID aur 4-digit PIN ya kam se kam 8 characters ka password dalein.' };
       if (setup) {
         if (record || access.getPrincipal()) return { success: false, error: 'Admin pehle se configured hai. Existing login use karein.' };
         if (args.confirmSecret !== secret) return { success: false, error: 'Dono passwords ek jaise hone chahiye.' };
@@ -118,10 +118,9 @@ function createOffline({ file, safeStorage, access, now = Date.now, fetchCloud, 
       const currentSecret = String(args.secret || '');
       const nextSecret = args.newSecret;
       if (currentId !== record.email || !(/^[a-z][a-z0-9._-]{2,63}$/.test(nextId) || /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(nextId))
-        || nextId.length > 254 || typeof nextSecret !== 'string' || nextSecret.length < MIN_SECRET
-        || nextSecret.length > MAX_SECRET || args.confirmSecret !== nextSecret
+        || nextId.length > 254 || !validLocalSecret(nextSecret) || args.confirmSecret !== nextSecret
         || (nextId === 'admin' && nextSecret === 'admin')) {
-        return { success: false, error: 'Choose a valid login ID and a different password of 8+ characters.' };
+        return { success: false, error: 'Choose a valid login ID and a 4-digit PIN or password of 8+ characters.' };
       }
       const actual = await deriveKey(currentSecret, Buffer.from(record.salt, 'base64'));
       if (!crypto.timingSafeEqual(actual, Buffer.from(record.hash, 'base64')))

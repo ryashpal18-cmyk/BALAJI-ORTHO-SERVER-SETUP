@@ -111,6 +111,20 @@ function goodCloud(url) {
   fresh.api.logout();
   assert.equal((await fresh.api.login({identifier:'clinicowner',secret:'New-Secret-For-Clinic-1'})).success,true);
   console.log('PASS temporary admin credentials cannot access records before secure rotation');
+  const pin = fixture();
+  const temporary = await pin.api.login({identifier:'admin',secret:'admin'});
+  const changePin = newSecret => pin.api.changeCredentials({
+    identifier:'admin',secret:'admin',newIdentifier:'clinicowner',
+    newSecret,confirmSecret:newSecret,changeToken:temporary.changeToken,
+  });
+  assert.equal((await changePin('123')).success,false);
+  assert.equal((await changePin('01a7')).success,false);
+  assert.equal((await changePin('0147')).success,true);
+  pin.api.logout();
+  pin.restart();
+  assert.equal((await pin.api.login({identifier:'clinicowner',secret:'0147'})).success,true);
+  console.log('PASS offline four-digit PIN rotation and login, including a leading zero');
+
 
   const corrupt=fixture(); await corrupt.setup();
   fs.writeFileSync(corrupt.file,'broken');

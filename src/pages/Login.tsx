@@ -232,8 +232,8 @@ export default function Login() {
                 <strong>First login: Apni ID aur password set karein</strong>
                 <p>Temporary login ko ab badalna zaroori hai.</p>
                 <label>New login ID<input type="text" required value={nextIdentifier} onChange={e => setNextIdentifier(e.target.value)} className="w-full border p-2 rounded" /></label>
-                <label>New password (8+ characters)<input type="password" minLength={8} maxLength={256} required value={nextSecret} onChange={e => setNextSecret(e.target.value)} className="w-full border p-2 rounded" /></label>
-                <label>Confirm new password<input type="password" minLength={8} required value={nextConfirm} onChange={e => setNextConfirm(e.target.value)} className="w-full border p-2 rounded" /></label>
+                <label>New PIN (4 digits) or password (8+ characters)<input type="password" minLength={4} maxLength={256} required value={nextSecret} onChange={e => setNextSecret(e.target.value)} className="w-full border p-2 rounded" /></label>
+                <label>Confirm PIN or password<input type="password" minLength={4} required value={nextConfirm} onChange={e => setNextConfirm(e.target.value)} className="w-full border p-2 rounded" /></label>
                 <button type="submit" disabled={loading || nextSecret !== nextConfirm} className="bg-blue-700 text-white rounded p-3">Save ID & Password</button>
               </form>
             ) : (desktop || serverConnection.url) && <form onSubmit={handleLogin} style={{ display: "flex", flexDirection: "column", gap: "14px" }}>
@@ -297,8 +297,8 @@ export default function Login() {
               </div>
 
               {mode === "local" && !configured && !(username.trim().toLowerCase() === "admin" && password === "admin") && <label style={{ fontSize: 12, fontWeight: 600 }}>
-                Password dobara dalein
-                <input aria-label="Confirm password" type="password" value={confirmPassword} onChange={e => setConfirmPassword(e.target.value)} autoComplete="new-password" required minLength={8}
+                4-digit PIN ya 8+ character password dobara dalein
+                <input aria-label="Confirm password" type="password" value={confirmPassword} onChange={e => setConfirmPassword(e.target.value)} autoComplete="new-password" required minLength={4}
                   style={{ width: "100%", height: 42, border: "1px solid #d5dde8", borderRadius: 8, padding: 10, marginTop: 6 }} />
               </label>}
               {mode === "local" && <label style={{ fontSize: 12, color: "#334155" }}>
