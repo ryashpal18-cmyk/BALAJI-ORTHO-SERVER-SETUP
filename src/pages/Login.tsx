@@ -200,7 +200,16 @@ export default function Login() {
             {setupError && <p role="alert" style={{ color: "#b91c1c" }}>{setupError}</p>}
 
             {!desktop && !serverConnection.url && <MobileServerSetup />}
-            {(desktop || serverConnection.url) && <form onSubmit={handleLogin} style={{ display: "flex", flexDirection: "column", gap: "14px" }}>
+            {changeToken ? (
+              <form onSubmit={saveFirstPassword} style={{ display: "grid", gap: 12 }}>
+                <strong>First login: Apni ID aur password set karein</strong>
+                <p>Temporary login ko ab badalna zaroori hai.</p>
+                <label>New login ID<input type="text" required value={nextIdentifier} onChange={e => setNextIdentifier(e.target.value)} className="w-full border p-2 rounded" /></label>
+                <label>New password (8+ characters)<input type="password" minLength={8} maxLength={256} required value={nextSecret} onChange={e => setNextSecret(e.target.value)} className="w-full border p-2 rounded" /></label>
+                <label>Confirm new password<input type="password" minLength={8} required value={nextConfirm} onChange={e => setNextConfirm(e.target.value)} className="w-full border p-2 rounded" /></label>
+                <button type="submit" disabled={loading || nextSecret !== nextConfirm} className="bg-blue-700 text-white rounded p-3">Save ID & Password</button>
+              </form>
+            ) : (desktop || serverConnection.url) && <form onSubmit={handleLogin} style={{ display: "flex", flexDirection: "column", gap: "14px" }}>
               {/* Username */}
               <div style={{ display: "flex", flexDirection: "column", gap: "5px" }}>
                 <label style={{ fontSize: "12px", fontWeight: 600, color: "#2a3a5a" }}>Email / Staff username</label>
