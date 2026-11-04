@@ -28,11 +28,15 @@ export function normalizeLetterpadLayout(value: any): LetterpadLayout {
   }
   return { positions, labels: value?.labels === true, offsetX: number(value?.offsetX, 0, -20, 20), offsetY: number(value?.offsetY, 0, -20, 20) };
 }
-export function buildLetterpadHtml(values: Record<LetterpadField, string>, input: LetterpadLayout, options: { background?: string } = {}): string {
+export function buildLetterpadHtml(values: Record<LetterpadField, string>, input: LetterpadLayout, options: { background?: string; clinic?: {name:string; doctor?:string; phone?:string; address?:string} } = {}): string {
   const layout = normalizeLetterpadLayout(input);
   // Only bundled raster data is accepted, never a remote URL or arbitrary HTML.
   const background = options.background && /^data:image\/(png|jpeg|webp);base64,[A-Za-z0-9+/=\s]+$/.test(options.background)
     ? `<img class="letterpad-design" alt="" src="${escapeHtml(options.background)}">` : "";
+  const clinicHeader = options.clinic?.name ? `<header class="clinic-heading">
+    <strong>${escapeHtml(options.clinic.name)}</strong>
+    <div>${escapeHtml([options.clinic.doctor,options.clinic.address,options.clinic.phone].filter(Boolean).join(' | '))}</div>
+    </header>` : "";
   const fields = letterpadFields.map(field => {
     const info = letterpadFieldInfo[field], pos = layout.positions[field];
     const x = Math.min(210 - info.width, Math.max(layout.labels ? info.labelWidth : 0, pos.x + layout.offsetX));
@@ -56,8 +60,9 @@ export function buildLetterpadHtml(values: Record<LetterpadField, string>, input
     @page { size: A4 portrait; margin: 0; }
     * { box-sizing: border-box; }
     html,body { margin:0; padding:0; width:210mm; height:297mm; background:white; color:black; font-family:Arial,"Nirmala UI",sans-serif; }
+    .clinic-heading {position:absolute;top:10mm;left:12mm;right:12mm;text-align:center;border-bottom:2px solid #0d5c8c;padding-bottom:4mm;color:#163e60;} .clinic-heading strong{font-size:21pt;} .clinic-heading div{font-size:10pt;margin-top:2mm;}
     .letterpad-design { position:absolute; left:0; top:0; width:210mm; height:297mm; }
     .value,.label { position:absolute; height:12mm; display:flex; align-items:center; line-height:1.1; overflow:hidden; }
     .value { font-weight:700; white-space:nowrap; } .name { white-space:normal; overflow-wrap:anywhere; } .label { font-size:10pt; font-weight:400; }
-  </style></head><body>${background}${fields}</body></html>`;
+  </style></head><body>${background}${clinicHeader}${fields}</body></html>`;
 }
