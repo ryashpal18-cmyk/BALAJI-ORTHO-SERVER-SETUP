@@ -33,6 +33,10 @@ export default function Login() {
   const [confirmPassword, setConfirmPassword] = useState("");
   const [remember, setRemember] = useState(true);
   const [setupError, setSetupError] = useState("");
+  const [changeToken, setChangeToken] = useState<string | null>(null);
+  const [nextIdentifier, setNextIdentifier] = useState("");
+  const [nextSecret, setNextSecret] = useState("");
+  const [nextConfirm, setNextConfirm] = useState("");
 
   const enter = async (profile: any) => {
     if (profile.role === "admin") await migrateLegacyIndexedDbIfNeeded();
@@ -55,7 +59,7 @@ export default function Login() {
         const status = await bridge.offlineStatus();
         if (!active) return;
         setConfigured(status.configured);
-        setUsername(status.email || "");
+        setUsername(status.email || "admin");
         setReady(true);
       } catch (error: any) {
         if (active) { setSetupError(error.message || "Saved login unavailable"); setReady(true); }
