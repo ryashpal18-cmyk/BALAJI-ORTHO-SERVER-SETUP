@@ -1,5 +1,5 @@
 import { queryClient } from "@/lib/queryClient";
-import { CLINIC_PROFILE_KEY, saveClinicProfile } from "@/lib/clinicProfile";
+import { CLINIC_PROFILE_KEY, getClinicProfile, saveClinicProfile } from "@/lib/clinicProfile";
 import { migrateLegacyIndexedDbIfNeeded } from "@/lib/offlineDb";
 import { startAutoSync } from "@/lib/offlineSync";
 import { startAutoBackupScheduler } from "@/lib/backup";
@@ -52,7 +52,8 @@ export default function Login() {
     startAutoSync();
     if (profile.role === "admin") startAutoBackupScheduler();
     setPassword(""); setConfirmPassword("");
-    navigate(profile.role === "admin" ? "/dashboard" : profile.pages[0] || "/dashboard", { replace: true });
+    const firstSetup = bridge?.clinicProfile && profile.localAdmin && !getClinicProfile().name;
+    navigate(firstSetup ? "/settings" : profile.role === "admin" ? "/dashboard" : profile.pages[0] || "/dashboard", { replace: true });
   };
 
   useEffect(() => {

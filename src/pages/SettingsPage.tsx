@@ -1,3 +1,5 @@
+import { ClinicSetupWizard } from "@/components/ClinicSetupWizard";
+import { PatientImport } from "@/components/PatientImport";
 import { MessagingSettings } from "@/components/MessagingSettings";
 import { ServerSetup } from '@/components/ServerSetup';
 import { getClinicProfile, saveClinicProfile } from '@/lib/clinicProfile';
@@ -465,21 +467,12 @@ export default function SettingsPage() {
           </p>
         </div>
 
-        {isAdmin && isElectron && <Card className="mb-4">
-          <CardHeader><CardTitle>Clinic Setup</CardTitle></CardHeader>
-          <CardContent className="space-y-2 text-sm">
-            <p>1. अपना Admin ID और password नीचे बदलें, यदि पहली बार setup कर रहे हैं।</p>
-            <p>2. Clinic Info में क्लिनिक का नाम, डॉक्टर, पता और फोन सेव करें।</p>
-            <p>3. Billing शुरू करने के लिए Branches में अपनी पहली branch बनाएँ।</p>
-            <p>4. Encrypted backup बनाएँ। जरूरत के अनुसार Server और Messaging जोड़ें।</p>
-            <div className="flex flex-wrap gap-2">
-              <Button size="sm" variant="outline" onClick={() => setTab("clinic")}>Clinic Info</Button>
-              <Button size="sm" variant="outline" onClick={() => navigate("/branches")}>Branches</Button>
-              <Button size="sm" variant="outline" onClick={() => setTab("backup")}>Backup</Button>
-              <Button size="sm" variant="outline" onClick={() => setTab("messaging")}>Messaging</Button>
-            </div>
-          </CardContent>
-        </Card>}
+        {isAdmin && isElectron && <ClinicSetupWizard
+          onOpenBackup={() => setTab("backup")} onOpenMessaging={() => setTab("messaging")}
+          onProfileSaved={() => {
+            const saved = getClinicProfile();
+            setClinicName(saved.name); setDocName(saved.doctor); setPhone(saved.phone); setAddress(saved.address);
+          }} />}
         {isAdmin && !!(window as any).electron?.changeOfflineCredentials && (
           <Card className="dash-card" style={{ marginBottom: 16 }}>
             <CardHeader><CardTitle>Admin Login ID / Password बदलें</CardTitle></CardHeader>
@@ -542,6 +535,7 @@ export default function SettingsPage() {
         </div>
 
         {tab === "messaging" && isAdmin && <MessagingSettings />}
+        {tab === "backup" && isAdmin && isElectron && <PatientImport />}
 
         {/* ══════════ TAB 1: CLINIC INFO ══════════ */}
         {tab === "clinic" && (

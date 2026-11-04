@@ -32,6 +32,7 @@ jobs:
       - run: node tests/textbee-settings.cjs
       - run: node tests/backup-encryption.cjs
       - run: node tests/full-backup-roundtrip.cjs
+      - run: node tests/patient-import.cjs
       - run: node tests/whatsapp-cloud.cjs
       - run: node tests/pc-family-whatsapp.cjs
       - run: node tests/sms-offline.cjs
