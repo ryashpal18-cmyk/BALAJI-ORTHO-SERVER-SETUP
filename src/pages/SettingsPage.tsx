@@ -1141,8 +1141,8 @@ export default function SettingsPage() {
               </CardHeader>
               <CardContent style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
                 <div style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
-                  <p style={{ fontSize: "16px", fontWeight: 700, color: "#1a2a4a" }}>Balaji Ortho Care Connect</p>
-                  <p style={{ fontSize: "12.5px", color: "#5a6a84" }}>Balaji Digital X-Ray &amp; Ortho Care Center</p>
+                  <p style={{ fontSize: "16px", fontWeight: 700, color: "#1a2a4a" }}>BJ OPD — Clinic Management Software</p>
+                  <p style={{ fontSize: "12.5px", color: "#5a6a84" }}>{clinicName || "Clinic / Hospital Name Not Set"}</p>
                 </div>
 
                 <div style={{
@@ -1177,7 +1177,7 @@ export default function SettingsPage() {
                 </div>
 
                 <p style={{ fontSize: "11px", color: "#8a9ab0", marginTop: "2px" }}>
-                  © {new Date().getFullYear()} Balaji Ortho Care Center · Developed &amp; maintained by Dr. Yash Rathore
+                  © {new Date().getFullYear()} BJ TECH SOFTWARE DEVELOPER · Dr. Yash Rathore
                 </p>
               </CardContent>
             </Card>
