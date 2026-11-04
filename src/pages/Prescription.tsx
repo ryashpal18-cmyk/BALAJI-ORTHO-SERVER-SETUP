@@ -1,7 +1,8 @@
+import {getClinicProfile} from "@/lib/clinicProfile";
 import {useQuery} from "@tanstack/react-query";
 import {recordId} from "@/lib/patientRecords";
 import {businessDate} from "@/lib/businessDate";
-import {buildPrescriptionHtml,PRESCRIPTION_DOCTOR_NAME,PRESCRIPTION_DOCTOR_QUALIFICATION} from "@/lib/prescriptionPrint";
+import {buildPrescriptionHtml} from "@/lib/prescriptionPrint";
 import {printPatientLetterpad} from "@/lib/patientPrint";
 import A4PrintPreview from "@/components/A4PrintPreview";
 import {Dialog,DialogContent,DialogHeader,DialogTitle,DialogDescription,DialogFooter} from "@/components/ui/dialog";
@@ -37,8 +38,7 @@ interface MedRow {
   duration: string;
 }
 
-const DOCTOR_NAME = PRESCRIPTION_DOCTOR_NAME;
-const DOCTOR_QUALIFICATION = PRESCRIPTION_DOCTOR_QUALIFICATION;
+
 
 export default function Prescription() {
   const navigate = useNavigate();
@@ -158,7 +158,7 @@ export default function Prescription() {
       `नमस्ते ${patient.name},`,
       ``,
       `${clinicName()}`,
-      `${DOCTOR_NAME} (${DOCTOR_QUALIFICATION})`,
+      `${getClinicProfile().doctor || "Doctor / Consultant"}`,
       ``,
       diagnosis ? `📋 Diagnosis: ${diagnosis}` : null,
       ``,
@@ -250,7 +250,7 @@ export default function Prescription() {
           {/* Letterhead */}
           <div className="p-5 border-b text-center bg-muted/20">
             <h1 className="text-xl font-bold">{clinicName()}</h1>
-            <p className="text-sm text-muted-foreground mt-0.5">{DOCTOR_NAME} · {DOCTOR_QUALIFICATION}</p>
+            <p className="text-sm text-muted-foreground mt-0.5">{getClinicProfile().doctor || "Doctor / Consultant"}</p>
           </div>
 
           <div className="p-5 space-y-5">
