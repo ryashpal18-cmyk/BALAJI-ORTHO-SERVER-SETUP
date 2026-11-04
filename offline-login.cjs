@@ -11,7 +11,7 @@ const deriveKey = (secret, salt) => new Promise((resolve, reject) =>
   crypto.scrypt(secret, salt, 64, SCRYPT, (error, key) => error ? reject(error) : resolve(key)));
 
 function createOffline({ file, safeStorage, access, now = Date.now, fetchCloud, config, onCloudToken = () => {} }) {
-  let generation = 0, busy = false;
+  let generation = 0, busy = false, pendingChangeToken = null;
   const encryptedAvailable = () => {
     try { return !!safeStorage?.isEncryptionAvailable() && safeStorage.getSelectedStorageBackend?.() !== 'basic_text'; }
     catch { return false; }
@@ -45,7 +45,7 @@ function createOffline({ file, safeStorage, access, now = Date.now, fetchCloud, 
   }
   function status() {
     const record = read();
-    return { configured: !!record, email: record?.email || '', secureStorage: encryptedAvailable() };
+    return { configured: !!record, email: record?.email || 'admin', secureStorage: encryptedAvailable(), mustChange: !!record?.mustChange };
   }
   async function authenticate(args, setup = false) {
     if (busy) return { success: false, error: 'Login chal raha hai. Ek pal ruk kar try karein.' };
@@ -54,8 +54,20 @@ function createOffline({ file, safeStorage, access, now = Date.now, fetchCloud, 
     try {
       let record = read();
       const email = normalizeEmail(args?.identifier), secret = args?.secret;
-      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) || email.length > 254 || typeof secret !== 'string' || secret.length < MIN_SECRET || secret.length > MAX_SECRET)
-        return { success: false, error: 'Sahi email aur kam se kam 8 characters ka password dalein.' };
+      // A temporary account exists only on fresh installations and cannot access data
+      // until its credentials have been changed.
+      if (!record && !setup && email === 'admin' && secret === 'admin') {
+        const salt = crypto.randomBytes(16);
+        const hash = await deriveKey(secret, salt);
+        record = { email, userId: crypto.randomUUID(), salt: salt.toString('base64'),
+          hash: hash.toString('base64'), mustChange: true, remember: false };
+        write(record);
+      }
+      const validIdentity = email === 'admin' || /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+      const bootstrapLogin = !!record?.mustChange && email === 'admin' && secret === 'admin';
+      if (!validIdentity || email.length > 254 || typeof secret !== 'string'
+        || ((!bootstrapLogin && secret.length < MIN_SECRET) || secret.length > MAX_SECRET))
+        return { success: false, error: 'Sahi ID aur kam se kam 8 characters ka password dalein.' };
       if (setup) {
         if (record || access.getPrincipal()) return { success: false, error: 'Admin pehle se configured hai. Existing login use karein.' };
         if (args.confirmSecret !== secret) return { success: false, error: 'Dono passwords ek jaise hone chahiye.' };
@@ -75,6 +87,11 @@ function createOffline({ file, safeStorage, access, now = Date.now, fetchCloud, 
         }
       }
       if (epoch !== generation) return { success: false, error: 'Login cancel ho gaya.' };
+      if (record.mustChange) {
+        // The bootstrap password never creates a privileged session.
+        pendingChangeToken = crypto.randomUUID();
+        return { success: true, requiresPasswordChange: true, changeToken: pendingChangeToken };
+      }
       record.fails = 0; record.lockUntil = 0;
       record.remember = args.remember !== false;
       delete record.syncSecret; // Local password is never a cloud credential.
@@ -85,14 +102,49 @@ function createOffline({ file, safeStorage, access, now = Date.now, fetchCloud, 
       return grant(record);
     } finally { busy = false; }
   }
+  async function changeCredentials(args = {}) {
+    if (busy) return { success: false, error: 'Another authentication operation is running.' };
+    busy = true;
+    try {
+      const record = read();
+      if (!record) return { success: false, error: 'Offline admin account not found.' };
+      const principal = access.getPrincipal();
+      const rotatingDefault = !!record.mustChange && !!pendingChangeToken && args.changeToken === pendingChangeToken;
+      const loggedInOwner = !!principal?.localAdmin && principal.userId === record.userId;
+      if (!rotatingDefault && !loggedInOwner) return { success: false, error: 'Admin login required.' };
+      const currentId = normalizeEmail(args.identifier);
+      const nextId = normalizeEmail(args.newIdentifier);
+      const currentSecret = String(args.secret || '');
+      const nextSecret = args.newSecret;
+      if (currentId !== record.email || !((nextId === 'admin') || /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(nextId))
+        || nextId.length > 254 || typeof nextSecret !== 'string' || nextSecret.length < MIN_SECRET
+        || nextSecret.length > MAX_SECRET || args.confirmSecret !== nextSecret
+        || (nextId === 'admin' && nextSecret === 'admin')) {
+        return { success: false, error: 'Choose a valid login ID and a different password of 8+ characters.' };
+      }
+      const actual = await deriveKey(currentSecret, Buffer.from(record.salt, 'base64'));
+      if (!crypto.timingSafeEqual(actual, Buffer.from(record.hash, 'base64')))
+        return { success: false, error: 'Current ID or password is incorrect.' };
+      const salt = crypto.randomBytes(16), hash = await deriveKey(nextSecret, salt);
+      record.email = nextId;
+      record.salt = salt.toString('base64');
+      record.hash = hash.toString('base64');
+      record.mustChange = false; record.fails = 0; record.lockUntil = 0;
+      record.remember = args.remember !== false;
+      delete record.syncSecret; delete record.cloud;
+      write(record); pendingChangeToken = null; generation++;
+      onCloudToken(null);
+      return grant(record);
+    } finally { busy = false; }
+  }
   function restore() {
     if (access.getPrincipal()) return access.getPrincipal();
     const record = read();
-    if (record?.trustedStorage && record.remember === true) return grant(record).principal;
+    if (record?.trustedStorage && record.remember === true && !record.mustChange) return grant(record).principal;
     return null;
   }
   function logout() {
-    generation++; onCloudToken(null); access.setPrincipal(null);
+    generation++; pendingChangeToken = null; onCloudToken(null); access.setPrincipal(null);
     const record = read();
     if (record) { record.remember = false; delete record.cloud; write(record); }
   }
@@ -107,7 +159,7 @@ function createOffline({ file, safeStorage, access, now = Date.now, fetchCloud, 
     onCloudToken(null);
     return { success: true, mode: 'api' };
   }
-  return { status, setup: args => authenticate(args, true), login: args => authenticate(args), restore, logout, connect };
+  return { status, setup: args => authenticate(args, true), login: args => authenticate(args), changeCredentials, restore, logout, connect };
 }
 
 function register({ ipcMain, access, app, safeStorage, net, config, onCloudToken }) {
@@ -126,6 +178,7 @@ function register({ ipcMain, access, app, safeStorage, net, config, onCloudToken
   ipcMain.handle('auth:offlineStatus', () => get().status());
   ipcMain.handle('auth:offlineSetup', (_event, args) => get().setup(args));
   ipcMain.handle('auth:offlineLogin', (_event, args) => get().login(args));
+  ipcMain.handle('auth:changeOfflineCredentials', (_event, args) => get().changeCredentials(args));
 
   return { restore: () => get().restore(), logout: () => get().logout() };
 }
