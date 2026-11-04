@@ -286,6 +286,26 @@ export default function SettingsPage() {
     document.documentElement.style.setProperty("--sidebar-background-override", t.primaryColor);
   };
 
+  const changeAdminLogin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const bridge = (window as any).electron;
+    if (!bridge?.changeOfflineCredentials || !isAdmin) return;
+    setChangingAdminLogin(true);
+    try {
+      const result = await bridge.changeOfflineCredentials({
+        identifier: currentAdminId, secret: currentAdminPassword,
+        newIdentifier: newAdminId, newSecret: newAdminPassword,
+        confirmSecret: confirmAdminPassword, remember: true,
+      });
+      if (!result?.success) throw new Error(result?.error || "Cannot change login");
+      setCurrentAdminPassword(""); setNewAdminPassword(""); setConfirmAdminPassword("");
+      setCurrentAdminId(newAdminId);
+      toast({title:"Admin Login updated", description:"Agli baar nayi ID aur password use karein."});
+    } catch (error: any) {
+      toast({title:"Login update failed", description:error.message,variant:"destructive"});
+    } finally { setChangingAdminLogin(false); }
+  };
+
   // ── Save handlers ──
   const handleSaveClinic = () => {
     toast({ title: "✅ Clinic info saved", description: "Changes saved successfully" });
