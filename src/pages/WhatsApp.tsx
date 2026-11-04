@@ -1,3 +1,4 @@
+import {getClinicProfile,requireClinicProfile} from "@/lib/clinicProfile";
 import { normalizeIndianMobile } from "@/lib/mobile";
 import { personalizeMessage } from "@/lib/messagePersonalization";
 import { OutreachStatus } from "@/components/OutreachStatus";
@@ -15,11 +16,14 @@ import { useState } from "react";
 import { usePatients } from "@/hooks/useDatabase";
 import { toast } from "@/hooks/use-toast";
 
-const TEMPLATES: Record<string, string> = {
-  welcome: `🙏 Namaste [NAME],\n\nBalaji Ortho Care Center में आपका स्वागत है!\n\n👨‍⚕️ Dr. S. S. Rathore (DMRT | BPT)\n📍 Opp Govt Hospital, Bay Pass Road, Khinwara, Raj. – 306502\n📞 +91 8005707783\n\n🌐 Online Reports & Appointments:\nhttps://balaji-health-hub.lovable.app/\n\nधन्यवाद! 🙏`,
-  reminder: `Namaste [NAME],\n\nBalaji Ortho Care Center se nivedan hai ki aapka payment pending hai.\nKripya clinic par jama karein.\n\n📞 +91 8005707783\n🌐 https://balaji-health-hub.lovable.app/\n\nDhanyawad! 🙏`,
-  followup: `🙏 Namaste [NAME],\n\nAapka follow-up visit Balaji Ortho Care Center mein due hai.\nKripya appointment lein.\n\n📞 +91 8005707783\n🌐 https://balaji-health-hub.lovable.app/\n\nDhanyawad!`,
+const TEMPLATES = (): Record<string, string> => {
+  const clinic=getClinicProfile();
+  return {
+  welcome: `🙏 Namaste [NAME],\n\n${clinic.name||"Clinic / Hospital"} में आपका स्वागत है!\n\n👨‍⚕️ ${clinic.doctor||""}\n📍 ${clinic.address||""}\n📞 ${clinic.phone||""}\n\n\nधन्यवाद! 🙏`,
+  reminder: `Namaste [NAME],\n\n${clinic.name||"Clinic / Hospital"} se nivedan hai ki aapka payment pending hai.\nKripya clinic par jama karein.\n\n📞 ${clinic.phone||""}\n\nDhanyawad! 🙏`,
+  followup: `🙏 Namaste [NAME],\n\nAapka follow-up visit ${clinic.name||"Clinic / Hospital"} mein due hai.\nKripya appointment lein.\n\n📞 ${clinic.phone||""}\n\nDhanyawad!`,
   custom: "",
+  };
 };
 
 // ✅ IPC ke through Electron main process ko WhatsApp window open karne bolna
@@ -46,18 +50,18 @@ export default function WhatsApp() {
   const [selectedPatient, setSelectedPatient] = useState("");
   const [manualNumber, setManualNumber] = useState("");
   const [template, setTemplate] = useState("welcome");
-  const [message, setMessage] = useState(TEMPLATES.welcome);
+  const [message, setMessage] = useState(TEMPLATES().welcome);
 
   const selectedPatientData = patients?.find(p => p.id === selectedPatient);
 
   const handleTemplateChange = (t: string) => {
     setTemplate(t);
-    setMessage(TEMPLATES[t] || "");
+    setMessage(TEMPLATES()[t] || "");
   };
 
   const handlePatientChange = (id: string) => {
-    if (selectedPatient !== id && message !== TEMPLATES[template]) {
-      setMessage(TEMPLATES[template] || "");
+    if (selectedPatient !== id && message !== TEMPLATES()[template]) {
+      setMessage(TEMPLATES()[template] || "");
       toast({ title: "मरीज बदलने पर संपादित संदेश फिर जाँचें" });
     }
     setSelectedPatient(id);
@@ -69,6 +73,7 @@ export default function WhatsApp() {
   };
 
   const handleSend = () => {
+    try { requireClinicProfile(); } catch(e:any) {toast({title:"Clinic Name missing",description:e.message,variant:"destructive"});return;}
     const number = manualNumber || selectedPatientData?.mobile || "";
     if (!number) {
       toast({ title: "Error", description: "Mobile number ज़रूरी है", variant: "destructive" });
@@ -129,7 +134,7 @@ export default function WhatsApp() {
                 <Input
                   placeholder="Mobile number"
                   value={manualNumber}
-                  onChange={e => { setManualNumber(e.target.value); setSelectedPatient(""); if (message !== TEMPLATES[template]) setMessage(TEMPLATES[template] || ""); }}
+                  onChange={e => { setManualNumber(e.target.value); setSelectedPatient(""); if (message !== TEMPLATES()[template]) setMessage(TEMPLATES()[template] || ""); }}
                 />
               </div>
 
@@ -187,7 +192,7 @@ export default function WhatsApp() {
                         size="sm"
                         className="text-green-600 hover:text-green-700 hover:bg-green-50 gap-1 flex-shrink-0"
                         onClick={() => {
-                          const welcomeMsg = personalizeMessage(TEMPLATES.welcome, p.name);
+                          const welcomeMsg = personalizeMessage(TEMPLATES().welcome, p.name);
                           openWhatsAppWeb(p.mobile!, welcomeMsg);
                         }}
                       >
