@@ -1,3 +1,4 @@
+import {requireClinicProfile} from "./clinicProfile";
 // Hindi WhatsApp message builder for ortho clinic.
 // Uses WhatsApp Web URL — no paid API.
 
@@ -22,7 +23,7 @@ export type WaFracture = {
   next_followup_date?: string | null;
 };
 
-export const CLINIC_NAME = "Balaji Ortho Care Center";
+export const clinicName = () => requireClinicProfile().name;
 
 function fmtDate(d?: string | null) {
   if (!d) return "-";
@@ -40,7 +41,7 @@ export function buildNormalMessage(patient: WaPatient, bill: WaBill) {
   return [
     `नमस्ते ${patient.name},`,
     ``,
-    `${CLINIC_NAME} में आपका स्वागत है।`,
+    `${clinicName()} में आपका स्वागत है।`,
     ``,
     `🧾 Invoice विवरण:`,
     `सेवा: ${bill.service || "-"}`,
@@ -63,7 +64,7 @@ export function buildFractureMessage(
   const lines = [
     `नमस्ते ${patient.name},`,
     ``,
-    `${CLINIC_NAME} में आपका इलाज हुआ है।`,
+    `${clinicName()} में आपका इलाज हुआ है।`,
     ``,
     `🦴 Fracture विवरण:`,
     `अंग: ${fx.side || ""} ${part}`.trim(),
