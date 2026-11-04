@@ -1,3 +1,4 @@
+import { requireClinicProfile } from "@/lib/clinicProfile";
 import { useMemo, useState } from "react";
 import { DashboardLayout } from "@/components/DashboardLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -83,7 +84,7 @@ function printDoctorReport(groups: Group[], from: string, to: string, totals: { 
     .sign div{border-top:1px solid #94a3b8;padding-top:4px;min-width:150px;text-align:center}
     @media print{.no-print{display:none}}
   </style></head><body>
-  <div class="clinic">Balaji Ortho Care Center</div>
+  <div class="clinic">${escapeHtml(requireClinicProfile().name)}</div>
   <div class="title">Doctor X-Ray Commission Report</div>
   <div class="muted">Period: ${escapeHtml(fmtDate(from))} to ${escapeHtml(fmtDate(to))}</div>
   <div class="summary">
