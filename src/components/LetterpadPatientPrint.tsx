@@ -1,5 +1,5 @@
 import { useState } from "react";
-import designUrl from "@/assets/clinic-letterpad.jpg";
+import {getClinicProfile} from "@/lib/clinicProfile";
 import { printPatientLetterpad } from "@/lib/patientPrint";
 import { refreshPatientRegistration } from "@/lib/patientRegistration";
 import A4PrintPreview from "@/components/A4PrintPreview";
@@ -36,7 +36,7 @@ export default function LetterpadPatientPrint({ patient }: Props) {
   const [previewOpen, setPreviewOpen] = useState(false);
   const formattedDate = /^\d{4}-\d{2}-\d{2}$/.test(date) ? date.split("-").reverse().join("/") : "";
   const values = { name: patient?.name || "", age: patient?.age != null ? `${patient.age} Y` : "", gender: patient?.gender || "", date: formattedDate, registration: registration.trim() };
-  const html = buildLetterpadHtml(values, layout, { background: paper === "complete" ? designUrl : undefined });
+  const html = buildLetterpadHtml(values, layout, { clinic: paper === "complete" ? getClinicProfile() : undefined });
   const refreshRegistration = async () => {
     if (checking || !patient) return;
     setChecking(true);
@@ -50,6 +50,7 @@ export default function LetterpadPatientPrint({ patient }: Props) {
   };
   const print = async () => {
     if (!patient || !registration || !formattedDate || printing) return;
+    if(paper === "complete" && !getClinicProfile().name){toast({title:"Clinic Name missing",description:"Settings में Clinic / Hospital Name सेव करें।",variant:"destructive"});return;}
     setPrinting(true);
     try {
       await printPatientLetterpad(html);
@@ -63,7 +64,7 @@ export default function LetterpadPatientPrint({ patient }: Props) {
       <Button variant={paper === "information" ? "default" : "outline"} onClick={() => setPaper("information")}>1. केवल Patient Information</Button>
       <Button variant={paper === "complete" ? "default" : "outline"} onClick={() => setPaper("complete")}>2. पूरा Letterpad + Patient Information</Button>
     </div>
-    <p className="text-sm">{paper === "information" ? "पहले से छपे लेटरपैड के लिए: केवल नाम, BAOR नंबर, उम्र, लिंग और तारीख छपेगी।" : "सादे A4 कागज के लिए: आपका पूरा final design और मरीज की भरी हुई जानकारी छपेगी।"}</p>
+    <p className="text-sm">{paper === "information" ? "पहले से छपे लेटरपैड के लिए: केवल नाम, BAOR नंबर, उम्र, लिंग और तारीख छपेगी।" : "सादे A4 कागज के लिए: आपके सेव किए Clinic / Hospital नाम वाला A4 लेटरहेड और मरीज की जानकारी छपेगी।"}</p>
     {patient ? <p className="font-semibold">{patient.name} · {patient.age ?? "—"} वर्ष · {patient.gender || "—"}</p> : <p>ऊपर से मरीज चुनें।</p>}
     <div className="grid sm:grid-cols-2 gap-3">
       <div><Label htmlFor="letterpad-date">प्रिंट की तारीख</Label><Input id="letterpad-date" type="date" value={date} onChange={e => setDate(e.target.value)} /></div>
