@@ -1,4 +1,4 @@
-import {requireClinicProfile} from "./clinicProfile";
+import {getClinicProfile, requireClinicProfile} from "./clinicProfile";
 // Hindi WhatsApp message builder for ortho clinic.
 // Uses WhatsApp Web URL — no paid API.
 
@@ -23,7 +23,7 @@ export type WaFracture = {
   next_followup_date?: string | null;
 };
 
-export const clinicName = () => requireClinicProfile().name;
+export const clinicName = () => getClinicProfile().name || "Clinic / Hospital";
 
 function fmtDate(d?: string | null) {
   if (!d) return "-";
@@ -35,6 +35,7 @@ function fmtDate(d?: string | null) {
 }
 
 export function buildNormalMessage(patient: WaPatient, bill: WaBill) {
+  requireClinicProfile();
   const total = Number(bill.amount || 0);
   const paid = Number(bill.amount_paid || 0);
   const due = Math.max(total - paid, 0);
@@ -59,6 +60,7 @@ export function buildFractureMessage(
   bill: WaBill | null,
   fx: WaFracture,
 ) {
+  requireClinicProfile();
   const part = fx.body_part || "-";
   const precaution = PRECAUTIONS[part] || PRECAUTIONS.Default;
   const lines = [
