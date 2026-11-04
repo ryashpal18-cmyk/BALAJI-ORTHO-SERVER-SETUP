@@ -1,3 +1,4 @@
+import { BillingImport } from "@/components/BillingImport";
 import { syncClinicProfile } from "@/lib/clinicProfileSync";
 import { ensureCloudSession } from "@/lib/localSession";
 import { ClinicSetupWizard } from "@/components/ClinicSetupWizard";
@@ -553,7 +554,7 @@ export default function SettingsPage() {
         </div>
 
         {tab === "messaging" && isAdmin && <MessagingSettings />}
-        {tab === "backup" && isAdmin && isElectron && <PatientImport />}
+        {tab === "backup" && isAdmin && isElectron && <><PatientImport /><BillingImport /></>}
 
         {/* ══════════ TAB 1: CLINIC INFO ══════════ */}
         {tab === "clinic" && (

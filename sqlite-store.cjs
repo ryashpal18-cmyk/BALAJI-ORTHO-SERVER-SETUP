@@ -393,7 +393,14 @@ function commitMutation(mutation, row, idField = 'id') {
       }
     }
     if (mutation.table === 'billing' && mutation.op === 'insert') {
-      metaSet('whatsapp:bill-origin:' + String(saved[idField]).replace(/^local_/, ''), true);
+      const id = String(saved[idField]).replace(/^local_/, '');
+      if (mutation.historicalImport === true) {
+        if (cacheGetRow('billing', id) || cacheGetRow('billing', 'local_' + id)) {
+          throw Error('यह पुराना invoice पहले import हो चुका है। नया preview खोलें।');
+        }
+      } else {
+        metaSet('whatsapp:bill-origin:' + id, true);
+      }
     }
     if (mutation.table === 'patients' && mutation.op === 'insert') {
       saved = registration.allocate(module.exports, saved);

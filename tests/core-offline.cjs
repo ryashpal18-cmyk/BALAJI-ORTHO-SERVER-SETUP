@@ -59,5 +59,14 @@ function evaluate(code,ctx){return vm.runInNewContext(ts.transpile('const result
  let patch; e=expression(file,'handleMarkFullyPaid');await evaluate(e.node.getText(e.ast),{updateBill:{mutateAsync:async x=>patch=x},toast:()=>{}})(due[0]);assert.equal(patch.amount,1000);assert.equal(patch.amount_paid,800);assert.equal(normalizeBill(patch,{...input,id:'bill'}).status,'Paid');
  const notices=[];e=expression(file,'handleSendSMS');await evaluate(e.node.getText(e.ast),{setSendingId:()=>{},sendSMS:async()=>({ok:false,queued:false,error:'disk full'}),getDueMessage:()=>'',toast:x=>notices.push(x)})({...due[0],patients:patient});assert.equal(notices[0].title,'SMS bhejne me dikkat hui');console.log('PASS discounted due and full-payment amount; no false SMS success');
  e=expression('src/pages/Ortho.tsx','handleSave');let caseRow;const notices2=[];await evaluate(e.node.getText(e.ast),{name:'Test Patient',mobile:'+919123456780',bodySelection:{body_part:'Arm'},fractureType:'Test',selPt:null,savingCase:{current:false},cacheGetAll:async()=>[patient],addPatient:{mutateAsync:async()=>{throw Error('Duplicate patient')}},addCase:{mutateAsync:async r=>caseRow=r},age:'',cause:'',plasterType:'POP',plasterDate:'2026-10-08',followupDays:'7',nextFU:'2026-10-15',notes:'',toast:{success:x=>notices2.push(x),error:x=>{throw Error(x)}},sendSMS:async()=>({ok:true,queued:true}),tplReminder:()=>'',resetForm:()=>{},refetchCases:()=>{},refetchFollowups:()=>{}})();assert.equal(caseRow.patient_id,patient.id);console.log('PASS Ortho save reuses local patient without any network dependency');
+ const oldId='local_00000000-0000-4000-8000-000000000999';
+ const oldBill={...input,id:oldId,created_at:'2020-01-01T06:30:00.000Z'};
+ const imported={mutation:{table:'billing',op:'insert',tempId:oldId,payload:oldBill,historicalImport:true},row:oldBill};
+ const beforeImport=store.queueGetAll().length;
+ await db.commitBatch([imported]);
+ assert.equal(store.metaGet('whatsapp:bill-origin:'+oldId.slice(6)),undefined);
+ await assert.rejects(()=>db.commitBatch([imported]),/पहले import/);
+ assert.equal(store.queueGetAll().length,beforeImport+1);
+ console.log('PASS historical import writes one queue entry and is excluded from automatic bill WhatsApp');
  store.close();fs.rmSync(testDir,{recursive:true,force:true});
 })().catch(e=>{console.error(e);try{store.close()}catch{};fs.rmSync(testDir,{recursive:true,force:true});process.exitCode=1});
