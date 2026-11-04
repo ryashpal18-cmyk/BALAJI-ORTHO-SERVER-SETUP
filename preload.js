@@ -58,6 +58,7 @@ contextBridge.exposeInMainWorld('electron', {
   offlineLogin:    (data) => ipcRenderer.invoke('auth:offlineLogin', data),
   offlineStatus: () => ipcRenderer.invoke('auth:offlineStatus'),
   offlineSetup: (data) => ipcRenderer.invoke('auth:offlineSetup', data),
+  changeOfflineCredentials: (data) => ipcRenderer.invoke('auth:changeOfflineCredentials', data),
   syncSession: () => ipcRenderer.invoke('auth:syncSession'),
   adoptSyncSession: session => ipcRenderer.invoke('auth:adoptSyncSession', session),
   cloudSyncStatus: () => ipcRenderer.invoke('auth:cloudSyncStatus'),
