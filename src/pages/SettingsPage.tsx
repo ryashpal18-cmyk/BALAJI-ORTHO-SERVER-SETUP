@@ -426,6 +426,21 @@ export default function SettingsPage() {
           </p>
         </div>
 
+        {isAdmin && !!(window as any).electron?.changeOfflineCredentials && (
+          <Card className="dash-card" style={{ marginBottom: 16 }}>
+            <CardHeader><CardTitle>Admin Login ID / Password बदलें</CardTitle></CardHeader>
+            <CardContent>
+              <form onSubmit={changeAdminLogin} style={{ display: "grid", gap: 10 }}>
+                <Label>Current Login ID</Label>
+                <Input required value={currentAdminId} onChange={e => setCurrentAdminId(e.target.value)} autoComplete="username" />
+                <Label>Current Password</Label>
+                <Input required type="password" value={currentAdminPassword} onChange={e => setCurrentAdminPassword(e.target.value)} autoComplete="current-password" />
+                <Label>New Login ID</Label>
+                <Input required value={newAdminId} onChange={e => setNewAdminId(e.target.value)} />
+              </form>
+            </CardContent>
+          </Card>
+        )}
         {isAdmin && <ServerSetup />}
         {isAdmin && <CloudSyncConnect />}
 
