@@ -2,10 +2,10 @@
 const {createMessagingLog}=require('./messaging-log.cjs');
 const {randomUUID,createHash}=require('crypto');
 const {familyNumber}=require('./family-profile.cjs');
-const CLINIC='Balaji Digital X-Ray & Ortho Care Center';
+const CLINIC='[CLINIC_NAME]';
 const FESTIVALS=[['diwali','दीपावली','दीयों का उजाला आपके जीवन में सुख, समृद्धि और खुशियाँ लाए।'],['holi','होली','खुशियों के रंगों से आपका जीवन सदा रंगीन रहे।'],['rakhi','रक्षाबंधन','स्नेह और विश्वास का यह बंधन सदा अटूट रहे।'],['navratri','नवरात्रि','माँ दुर्गा आपके परिवार को सुख, शक्ति और अच्छा स्वास्थ्य दें।'],['dussehra','दशहरा','यह पर्व आपके जीवन में नई आशा और खुशियाँ लाए।'],['dhanteras','धनतेरस','आपके घर में सुख, समृद्धि और अच्छे स्वास्थ्य का वास हो।'],['bhaidooj','भाई दूज','भाई-बहन का स्नेह जीवन में खुशियाँ भरता रहे।'],['janmashtami','जन्माष्टमी','श्रीकृष्ण की कृपा से आपके घर में आनंद और शांति बनी रहे।'],['ganesh','गणेश चतुर्थी','श्रीगणेश आपके जीवन में मंगल और खुशियाँ लाएँ।'],['sankranti','मकर संक्रांति','यह पर्व आपके जीवन में नई उमंग और खुशियाँ लाए।'],['newyear','नव वर्ष','नया साल आपके लिए नई उम्मीदें और अच्छा स्वास्थ्य लेकर आए।'],['eid','ईद','आपके परिवार में अमन, खुशियाँ और बरकत बनी रहे।'],['christmas','क्रिसमस','आपके जीवन में प्रेम, शांति और खुशियाँ बनी रहें।'],['custom','अन्य त्योहार','']].map(([id,name,line])=>({id,name,whatsapp:`🙏 आप और आपके परिवार को ${name} की हार्दिक शुभकामनाएँ!\n\n${line}\nआप सभी स्वस्थ रहें और मुस्कुराते रहें।\n\nसादर,\n${CLINIC}`,sms:`आप और आपके परिवार को ${name} की हार्दिक शुभकामनाएँ। सुख, शांति और अच्छे स्वास्थ्य की मंगलकामनाएँ। — ${CLINIC}`}));
 const indiaDate=t=>new Intl.DateTimeFormat('en-CA',{timeZone:'Asia/Kolkata',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date(t));
-function createFestivalService({store,allowed,whatsapp,sendSMS,now=Date.now,intervalMs=30000,logger}){
+function createFestivalService({store,allowed,whatsapp,sendSMS,now=Date.now,intervalMs=30000,logger,getClinic=()=>({name:'Clinic / Hospital'})}){
  const report=createMessagingLog(logger,'festival-messaging',now);
  const key='festival:campaigns',blockKey='festival:excluded';let busy=false,nextSend=0,gateway=null;
  const list=()=>store.metaGet(key)||[],save=rows=>store.metaSet(key,rows);
@@ -17,7 +17,7 @@ function createFestivalService({store,allowed,whatsapp,sendSMS,now=Date.now,inte
   const title=String(input.title||'').trim();if(!title||title.length>80)throw Error('त्योहार का नाम भरें (अधिकतम 80 अक्षर)।');
   const at=Date.parse(input.scheduledAt);if(!Number.isFinite(at)||!/(Z|[+-]\d{2}:\d{2})$/.test(input.scheduledAt))throw Error('सही तारीख और समय चुनें।');
   const channels=['whatsapp','sms'].filter(c=>input.channels?.includes(c));if(!channels.length)throw Error('WhatsApp या SMS चुनें।');
-  const messages={};for(const c of channels){const text=String(input[c]||'').trim();if(!text||text.length>1500)throw Error('संदेश 1 से 1500 अक्षर का होना चाहिए।');messages[c]=text;}
+  const messages={};for(const c of channels){const text=String(input[c]||'').trim();if(!text||text.length>1500)throw Error('संदेश 1 से 1500 अक्षर का होना चाहिए।');messages[c]=text.replace(/\[CLINIC_NAME\]/g,()=>getClinic().name);}
   return{festival:input.festival,title,scheduledAt:new Date(at).toISOString(),date:indiaDate(at),channels,messages};
  }
  function audience(){
@@ -46,7 +46,7 @@ function createFestivalService({store,allowed,whatsapp,sendSMS,now=Date.now,inte
  function review(cid,jid,action){assert();const all=list(),c=all.find(x=>x.id===cid),j=c?.jobs.find(x=>x.id===jid);if(!j||!['unconfirmed','failed'].includes(j.state))throw Error('इस संदेश की जाँच उपलब्ध नहीं है।');if(action==='sent')j.state='sent';else if(action==='cancel')j.state='cancelled';else throw Error('पहले WhatsApp/gateway में परिणाम जाँचें।');j.error='';save(all);}
  function setExclusions(numbers){assert();if(typeof numbers!=='string'||numbers.length>100000)throw Error('मोबाइल नंबरों की सूची सही नहीं है।');const values=numbers.split(/[\s,;]+/).filter(Boolean);const normalized=values.map(familyNumber);if(normalized.some(x=>!x))throw Error('हर नंबर 10 अंक या +91 के साथ लिखें; एक लाइन में एक नंबर।');store.metaSet(blockKey,[...new Set(normalized)].sort());}
  function configureSMS(config){assert();gateway={apiUrl:String(config?.apiUrl||''),apiKey:String(config?.apiKey||''),deviceId:String(config?.deviceId||'')};}
- function status(){assert();return{festivals:FESTIVALS,exclusions:exclusions(),smsReady:!!(gateway?.apiUrl&&gateway.apiKey&&gateway.deviceId),campaigns:list().slice().reverse().map(c=>({...c,estimate:estimate(c.jobs.filter(j=>['queued','sending'].includes(j.state)).length,c.scheduledAt),counts:c.jobs.reduce((a,j)=>(a[j.state]=(a[j.state]||0)+1,a),{}),jobs:c.jobs}))};}
+ function status(){assert();return{festivals:FESTIVALS.map(f=>({...f,whatsapp:f.whatsapp.replace(/\[CLINIC_NAME\]/g,()=>getClinic().name),sms:f.sms.replace(/\[CLINIC_NAME\]/g,()=>getClinic().name)})),exclusions:exclusions(),smsReady:!!(gateway?.apiUrl&&gateway.apiKey&&gateway.deviceId),campaigns:list().slice().reverse().map(c=>({...c,estimate:estimate(c.jobs.filter(j=>['queued','sending'].includes(j.state)).length,c.scheduledAt),counts:c.jobs.reduce((a,j)=>(a[j.state]=(a[j.state]||0)+1,a),{}),jobs:c.jobs}))};}
  async function tick(){
   if(busy||!allowed()||now()<nextSend)return;busy=true;
   try{
