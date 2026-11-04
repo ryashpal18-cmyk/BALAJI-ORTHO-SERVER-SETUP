@@ -281,7 +281,7 @@ function buildInvoiceHTML(bill: any, logoUrl: string = "/bj-opd-icon.png") {
 }
 
 async function printInvoice(bill: any) {
-  const logoUrl = window.location.origin + "/images/logo.png";
+  const logoUrl = window.location.origin + "/bj-opd-icon.png";
   const win = window.open("", "_blank", "width=900,height=700");
   if (!win) return;
   try { bill = {...bill, familyQr:await QRCode.toDataURL("balajiclinic://family/"+String(bill.patient_id).replace(/^local_/,""),{width:180,margin:4})}; } catch {win.close();toast({title:"QR नहीं बना; दोबारा कोशिश करें",variant:"destructive"});return;}
@@ -337,7 +337,7 @@ async function printInvoice(bill: any) {
 }
 
 async function previewInvoice(bill: any) {
-  const logoUrl = window.location.origin + "/images/logo.png";
+  const logoUrl = window.location.origin + "/bj-opd-icon.png";
   const win = window.open("", "_blank", "width=700,height=900");
   if (!win) return;
   try { bill = {...bill, familyQr:await QRCode.toDataURL("balajiclinic://family/"+String(bill.patient_id).replace(/^local_/,""),{width:180,margin:4})}; } catch {win.close();toast({title:"QR नहीं बना; दोबारा कोशिश करें",variant:"destructive"});return;}
@@ -362,7 +362,7 @@ async function getBase64Image(url: string): Promise<string> {
 }
 
 async function generateAndUploadPDF(bill: any): Promise<string | null> {
-  const logoUrl = await getBase64Image(window.location.origin + "/images/logo.png");
+  const logoUrl = await getBase64Image(window.location.origin + "/bj-opd-icon.png");
   bill = {...bill, familyQr:await QRCode.toDataURL("balajiclinic://family/"+String(bill.patient_id).replace(/^local_/,""),{width:180,margin:4})};
   const html = buildInvoiceHTML(bill, logoUrl);
 
