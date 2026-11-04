@@ -99,7 +99,7 @@ function printRemovalSlip(c: any) {
     <li>धीरे-धीरे चलें, जल्दी न करें</li><li>भारी वजन न उठाएं अगले 2 हफ्ते</li>
     <li>Physiotherapy करें</li><li>जरूरत पड़े तो तुरंत आएं</li>
   </ul></div>
-  <div class="sign">${clinicInfo().doctor||""}<br/>DMRT | BPT<br/>${clinicInfo().name}, ${clinicInfo().address||""}</div>
+  <div class="sign">${clinicInfo().doctor||""}<br/>${clinicInfo().name}, ${clinicInfo().address||""}</div>
   <div class="footer">दिनांक: ${fmtDate(todayIso())} · यह certificate hospital record के लिए है।</div>
   <button onclick="window.print()" style="margin-top:12px;padding:8px 18px;background:#1e3a5f;color:#fff;border:none;border-radius:8px;cursor:pointer">🖨 Print</button>
   <script>window.onload=function(){window.print()}</script>
@@ -1100,7 +1100,7 @@ export default function Ortho() {
             </div>
             <div>
               <h1 style={{fontSize:22,fontWeight:800,margin:0,background:"linear-gradient(135deg,#6366f1,#8b5cf6)",WebkitBackgroundClip:"text",WebkitTextFillColor:"transparent"}}>Ortho / Fracture Panel</h1>
-              <p style={{fontSize:12,color:"#6b7280",margin:0}}>${clinicInfo().doctor||""} · ${clinicInfo().name}, ${clinicInfo().address||""}</p>
+              <p style={{fontSize:12,color:"#6b7280",margin:0}}>{[clinicInfo().doctor,clinicInfo().name,clinicInfo().address].filter(Boolean).join(" · ")}</p>
             </div>
           </div>
           <span style={{fontSize:11,padding:"6px 14px",borderRadius:99,background:"#f0fdf4",color:"#16a34a",fontWeight:700,border:"1px solid #bbf7d0"}}>🟢 Offline Ready</span>
@@ -1423,7 +1423,7 @@ export default function Ortho() {
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Bulk SMS Confirm?</AlertDialogTitle>
-            <AlertDialogDescription>{activeCases.length} active patients ko SMS jayega — ${clinicInfo().doctor||"Doctor"} {fmtDate(longFrom)} se {fmtDate(longTo)} tak unavailable hain.</AlertDialogDescription>
+            <AlertDialogDescription>{activeCases.length} active patients ko SMS jayega — {clinicInfo().doctor||"Doctor"} {fmtDate(longFrom)} se {fmtDate(longTo)} tak unavailable hain.</AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
