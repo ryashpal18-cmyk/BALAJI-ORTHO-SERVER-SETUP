@@ -33,6 +33,7 @@ files:
   - logger.cjs
   - sqlite-store.cjs
   - sms-outbox.cjs
+  - textbee-settings.cjs
   - access-control.cjs
   - offline-login.cjs
   - cloud-sync.cjs

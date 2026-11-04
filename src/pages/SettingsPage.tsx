@@ -1,3 +1,4 @@
+import { MessagingSettings } from "@/components/MessagingSettings";
 import { ServerSetup } from '@/components/ServerSetup';
 import { getClinicProfile, saveClinicProfile } from '@/lib/clinicProfile';
 import { DiagnosticsPanel } from "@/components/DiagnosticsPanel";
@@ -31,7 +32,7 @@ import {
 import { toast } from "@/hooks/use-toast";
 
 // ── Tab type ──
-type Tab = "clinic" | "dashboard" | "users" | "backup" | "about";
+type Tab = "clinic" | "dashboard" | "users" | "backup" | "about" | "messaging";
 
 // ── Preset colors ──
 const COLORS = [
@@ -478,7 +479,7 @@ export default function SettingsPage() {
 
         {/* Tab bar */}
         <div style={{
-          display: "flex", gap: "4px", marginBottom: "24px",
+          display: "flex", flexWrap: "wrap", gap: "4px", marginBottom: "24px",
           background: "rgba(255,255,255,0.85)", padding: "4px",
           borderRadius: "14px", border: "1.5px solid #e4ecfa",
           width: "fit-content", backdropFilter: "blur(8px)",
@@ -497,6 +498,11 @@ export default function SettingsPage() {
               User Management
             </button>
           )}
+          {isAdmin && (
+            <button style={TAB_STYLE(tab === "messaging")} onClick={() => setTab("messaging")}>
+              Messaging
+            </button>
+          )}
           <button style={TAB_STYLE(tab === "backup")} onClick={() => setTab("backup")}>
             <HardDriveDownload style={{ width: "14px", height: "14px", display: "inline", marginRight: "6px" }} />
             Backup
@@ -506,6 +512,8 @@ export default function SettingsPage() {
             About
           </button>
         </div>
+
+        {tab === "messaging" && isAdmin && <MessagingSettings />}
 
         {/* ══════════ TAB 1: CLINIC INFO ══════════ */}
         {tab === "clinic" && (

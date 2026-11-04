@@ -1155,8 +1155,26 @@ ipcMain.on('open-whatsapp', (_e, payload) => {
 });
 
 // ─── SMS — Main process se bhejo (CORS issue fix) ────────────────────────────
-const sendDurableSMS = require('./sms-outbox.cjs').createSmsSender({ store: sqliteStore, logger });
-ipcMain.handle('app:sendSMS', async (_e, input) => sendDurableSMS(input));
+const textbee = require('./textbee-settings.cjs').createTextbeeSettings({
+  file: path.join(SERVER_DATA_DIR, 'textbee-settings.enc'), safeStorage,
+});
+const dispatchSMS = require('./sms-outbox.cjs').createSmsSender({ store: sqliteStore, logger });
+const sendDurableSMS = ({ requestId, mobile, message }) =>
+  dispatchSMS({ requestId, mobile, message, ...textbee.getGateway() });
+ipcMain.handle('messaging:smsStatus', () => textbee.status());
+ipcMain.handle('messaging:smsConnect', (_e, input) => {
+  const principal = access.getPrincipal();
+  const generation = authGeneration;
+  return textbee.connect(input, () => authGeneration === generation && access.getPrincipal() === principal);
+});
+ipcMain.handle('messaging:smsDisconnect', () => textbee.disconnect());
+ipcMain.handle('app:sendSMS', (_e, { requestId } = {}) => {
+  if (typeof requestId !== 'string' || !requestId) return { ok: false, error: 'SMS request ID required' };
+  const job = sqliteStore.queueGetAll().find(m => m.op === 'sms' && m.payload?.messageId === requestId &&
+    m.payload.deliveryState !== 'unconfirmed' && access.canMutation(m, sqliteStore));
+  if (!job) return { ok: false, error: 'Authorized queued SMS required' };
+  return sendDurableSMS({ requestId, mobile: job.payload.mobile, message: job.payload.message });
+});
 
 // Diagnostic checks only read clinical data. Reports are separate, local files.
 let diagnosticService;
@@ -1345,7 +1363,7 @@ app.whenReady().then(() => {
   } catch (e) {
     logger.logError('app-lifecycle', `SQLite offline store init fail: ${e.message}`);
   }
-  try {require('./pc-messaging.cjs').registerPcMessaging({app,BrowserWindow,ipcMain,dialog,shell,store:sqliteStore,access,sendSMS:sendDurableSMS,logger});}
+  try {require('./pc-messaging.cjs').registerPcMessaging({app,BrowserWindow,ipcMain,dialog,shell,store:sqliteStore,access,sendSMS:sendDurableSMS,getSmsGateway:textbee.getGateway,logger});}
   catch(error){logger.logError('whatsapp','Messaging setup unavailable: '+error.message);}
   const attachmentCache=require('./attachment-cache.cjs').createAttachmentCache({cacheRoot:path.join(app.getPath('userData'),'clinical-photo-cache'),localRoots:[XRAYS_DIR,path.join(app.getPath('userData'),'clinical-files')],cloudOrigin:authPublicConfig.url ? new URL(authPublicConfig.url).origin : 'https://unconfigured.invalid'});
   ipcMain.handle('attachment:read',(_e,source)=>{if(access.getPrincipal()?.role!=='admin')throw Error('Administrator login required');return attachmentCache.read(source);});

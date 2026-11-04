@@ -5,6 +5,12 @@ const { contextBridge, ipcRenderer } = require('electron');
 contextBridge.exposeInMainWorld('electron', {
   server: { publicConfig: () => ipcRenderer.sendSync('server:publicConfig'), check: input => ipcRenderer.invoke('server:check', input), provision: input => ipcRenderer.invoke('server:provision', input), connect: input => ipcRenderer.invoke('server:connect', input), restart: () => ipcRenderer.invoke('server:restart') },
 
+  messaging: {
+    smsStatus: () => ipcRenderer.invoke('messaging:smsStatus'),
+    smsConnect: input => ipcRenderer.invoke('messaging:smsConnect', input),
+    smsDisconnect: () => ipcRenderer.invoke('messaging:smsDisconnect'),
+  },
+
   family: {list: () => ipcRenderer.invoke('family:list'), profile: id => ipcRenderer.invoke('family:profile', id)},
   whatsapp: {
     status: () => ipcRenderer.invoke('whatsapp:status'),
@@ -39,7 +45,6 @@ contextBridge.exposeInMainWorld('electron', {
     change: (id,action) => ipcRenderer.invoke('festival:change', {id,action}),
     review: (id,jobId,action) => ipcRenderer.invoke('festival:review', {id,jobId,action}),
     exclude: numbers => ipcRenderer.invoke('festival:exclude', numbers),
-    configureSMS: config => ipcRenderer.invoke('festival:smsConfig', config),
   },
 
   monthly: {

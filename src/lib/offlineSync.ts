@@ -279,9 +279,7 @@ async function applyMutation(m: QueuedMutation): Promise<void> {
     if (!m.payload.messageId) await queueUpdate(m.id!, { payload: { ...m.payload, messageId } });
     const electron = (window as any).electron;
     if (!electron?.sendSMS) throw new Error("Electron SMS handler unavailable");
-    const result = await electron.sendSMS({ requestId: messageId,
-      apiUrl: import.meta.env.VITE_TEXTBEE_API_URL, apiKey: import.meta.env.VITE_TEXTBEE_API_KEY,
-      deviceId: import.meta.env.VITE_TEXTBEE_DEVICE_ID, mobile, message });
+    const result = await electron.sendSMS({ requestId: messageId, mobile, message });
     if (!result?.ok) {
       if (result?.uncertain) {
         await queueUpdate(m.id!, { payload: { ...m.payload, messageId, deliveryState: "unconfirmed" }, lastError: "" });
@@ -332,7 +330,7 @@ async function applyMutation(m: QueuedMutation): Promise<void> {
   }
 }
 
-export async function runSync(options:{retrySchema?:boolean}={}): Promise<{ synced: number; pending: number }> {
+export async function runSync(options:{retrySchema?:boolean;retrySmsConfig?:boolean}={}): Promise<{ synced: number; pending: number }> {
   if ((window as any).electron?.checkAuth && !(await (window as any).electron.checkAuth()).valid) return { synced: 0, pending: 0 };
   if (syncing) return { synced: 0, pending: await pendingCount() };
 
@@ -363,7 +361,8 @@ export async function runSync(options:{retrySchema?:boolean}={}): Promise<{ sync
       // Backoff is persisted, so restarting the app doesn't hammer the server.
       const schemaBlocked=/schema cache|could not find the function|relation .*does not exist/i.test(m.lastError||"");
       const retryDelay = schemaBlocked?30*60*1000:Math.min(30000 * 2 ** Math.min(Math.max((m.retries || 0) - 1, 0), 4), 300000);
-      if (!(options.retrySchema&&schemaBlocked) && m.lastAttemptAt && Date.now() - m.lastAttemptAt < retryDelay) { blocked.add(key); continue; }
+      const smsConfigBlocked = sms && /SMS gateway configuration missing|SMS gateway जोड़ें|SMS gateway rejected request \((401|403|404)\)/.test(m.lastError || "");
+      if (!(options.retrySchema && schemaBlocked) && !(options.retrySmsConfig && smsConfigBlocked) && m.lastAttemptAt && Date.now() - m.lastAttemptAt < retryDelay) { blocked.add(key); continue; }
 
       try {
         await applyMutation(m);

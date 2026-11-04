@@ -3,7 +3,7 @@ const path=require('path'),fs=require('fs');
 const {createMessagingLog}=require('./messaging-log.cjs');
 const clinicProfile=require('./clinic-profile.cjs');
 const {parseFamilyLink,familyGroups,familyRecords}=require('./family-profile.cjs');
-function registerPcMessaging({app,BrowserWindow,ipcMain,dialog,shell,store,access,sendSMS,logger}) {
+function registerPcMessaging({app,BrowserWindow,ipcMain,dialog,shell,store,access,sendSMS,getSmsGateway,logger}) {
   const report=createMessagingLog(logger,'messaging-worker');
   let pending=null;
   const accept=args=>{for(const arg of args||[]){const id=parseFamilyLink(arg);if(id)pending=id;}};
@@ -59,21 +59,20 @@ function registerPcMessaging({app,BrowserWindow,ipcMain,dialog,shell,store,acces
     if(save){const r=await dialog.showSaveDialog({defaultPath:'Clinic-Monthly-'+month+'.pdf',filters:[{name:'PDF',extensions:['pdf']}]});if(r.canceled)return{cancelled:true};if(!allowed())throw Error('Administrator login required');fs.copyFileSync(file,r.filePath);return{success:true};}
     const error=await shell.openPath(file);if(error)throw Error(error);return{success:true};
   }));
-  const festival=require('./festival-messaging.cjs').createFestivalService({store,allowed,whatsapp:service,sendSMS,logger,getClinic});
+  const festival=require('./festival-messaging.cjs').createFestivalService({store,allowed,whatsapp:service,sendSMS,logger,getClinic,getGateway:getSmsGateway});
   ipcMain.handle('festival:status',admin(()=>festival.status()));
   ipcMain.handle('festival:preview',admin((_e,input)=>festival.preview(input)));
   ipcMain.handle('festival:create',admin((_e,input)=>festival.create(input)));
   ipcMain.handle('festival:change',admin((_e,{id,action})=>festival.change(id,action)));
   ipcMain.handle('festival:review',admin((_e,{id,jobId,action})=>festival.review(id,jobId,action)));
   ipcMain.handle('festival:exclude',admin((_e,numbers)=>festival.setExclusions(numbers)));
-  const outreach=require('./outreach-service.cjs').createOutreachService({store,allowed,whatsapp:service,sendSMS,logger,getClinic});
+  const outreach=require('./outreach-service.cjs').createOutreachService({store,allowed,whatsapp:service,sendSMS,logger,getClinic,getGateway:getSmsGateway});
   ipcMain.handle('outreach:status',admin(()=>outreach.status()));
   ipcMain.handle('outreach:preview',admin((_e,input)=>outreach.previewBulk(input)));
   ipcMain.handle('outreach:enqueue',admin((_e,input)=>outreach.enqueueBulk(input)));
   ipcMain.handle('outreach:settings',admin((_e,input)=>outreach.setReceiptSettings(input)));
   ipcMain.handle('outreach:change',admin((_e,{id,action})=>outreach.change(id,action)));
   ipcMain.handle('outreach:review',admin((_e,{id,jobId,action})=>outreach.review(id,jobId,action)));
-  ipcMain.handle('festival:smsConfig',admin((_e,config)=>{festival.configureSMS(config);outreach.configureSMS(config);}));
   const worker=(kind,fn)=>()=>{void Promise.resolve().then(fn).catch(e=>report('MSG-010','Background messaging worker',e,{kind}));};
   const outreachTimer=setInterval(worker('outreach',()=>outreach.tick()),5000);
   app.on('before-quit',()=>clearInterval(outreachTimer));

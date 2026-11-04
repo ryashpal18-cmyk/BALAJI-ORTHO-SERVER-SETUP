@@ -130,7 +130,8 @@ function authorize(channel, args, store) {
     return;
   }
   if (['offline:isLegacyMigrated','app:openExternal','open-external-url','open-whatsapp','app:print','shell:print','print-invoice','log:getDir','log:getSnapshotDir'].includes(channel)) return;
-  if (['app:sendSMS','open-whatsapp-desktop'].includes(channel)) { assertTable('sms_logs'); if (channel === 'app:sendSMS') assertRow('sms_logs',args[0],store); return; }
+  // app:sendSMS checks ownership and branch access against the persisted queue entry.
+  if (['app:sendSMS','open-whatsapp-desktop'].includes(channel)) return assertTable('sms_logs');
   throw new Error('Administrator permission required');
 }
 function filterBranches(rows) { const p=getPrincipal(); return !p ? [] : p.role==='admin'||p.branchIds==null ? rows : rows.filter(r=>p.branchIds.includes(r.branch_id)); }
