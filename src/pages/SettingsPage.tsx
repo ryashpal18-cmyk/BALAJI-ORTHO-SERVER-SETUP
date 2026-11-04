@@ -1,4 +1,5 @@
 import { ServerSetup } from '@/components/ServerSetup';
+import { getClinicProfile, saveClinicProfile } from '@/lib/clinicProfile';
 import { DiagnosticsPanel } from "@/components/DiagnosticsPanel";
 import { CloudSyncConnect } from "@/components/CloudSyncConnect";
 import { supabase } from "@/integrations/supabase/client";
@@ -63,10 +64,24 @@ export default function SettingsPage() {
   const isAdmin                    = role === "admin";
 
   // ── Clinic Info ──
-  const [clinicName, setClinicName] = useState("Balaji Ortho Care Center");
-  const [docName,    setDocName]    = useState("Dr. S. S. Rathore (DMRT | BPT)");
-  const [phone,      setPhone]      = useState("+91 8005707783");
-  const [address,    setAddress]    = useState("Opp Govt Hospital, Bay Pass Road, Khinwara, Rajasthan – 306502");
+  const [clinicName, setClinicName] = useState(() => getClinicProfile().name);
+  const [docName,    setDocName]    = useState(() => getClinicProfile().doctor);
+  const [phone,      setPhone]      = useState(() => getClinicProfile().phone);
+  const [address,    setAddress]    = useState(() => getClinicProfile().address);
+
+  useEffect(() => {
+    const bridge=(window as any).electron;
+    if(!bridge?.clinicProfile || !isAdmin) return;
+    let active=true;
+    void bridge.clinicProfile().then((p:any)=>{
+      if(!active || !p) return;
+      if(p.name){
+        saveClinicProfile(p);
+        setClinicName(p.name);setDocName(p.doctor||'');setPhone(p.phone||'');setAddress(p.address||'');
+      }
+    }).catch(()=>{});
+    return ()=>{active=false;};
+  }, [isAdmin]);
 
   // ── Dashboard Modules ──
   const [modules, setModules] = useState<DashModules>(getDashModules());
@@ -307,8 +322,18 @@ export default function SettingsPage() {
   };
 
   // ── Save handlers ──
-  const handleSaveClinic = () => {
-    toast({ title: "✅ Clinic info saved", description: "Changes saved successfully" });
+  const handleSaveClinic = async () => {
+    if (!isAdmin) return;
+    try {
+      const proposed = {name:clinicName,doctor:docName,phone,address};
+      const bridge = (window as any).electron;
+      // The clinic server owns the settings on a desktop installation.
+      const confirmed = bridge?.saveClinicProfile ? await bridge.saveClinicProfile(proposed) : proposed;
+      saveClinicProfile(confirmed);
+      toast({title:"Clinic details saved",description:"New bills, PDFs, WhatsApp and SMS will use this clinic name."});
+    } catch (error:any) {
+      toast({title:"Clinic information not saved",description:error.message,variant:"destructive"});
+    }
   };
 
   const handleSaveModules = () => {
@@ -493,7 +518,7 @@ export default function SettingsPage() {
             </CardHeader>
             <CardContent style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
               {[
-                { label: "Clinic Name",   value: clinicName, set: setClinicName },
+                { label: "Clinic / Hospital Name",   value: clinicName, set: setClinicName },
                 { label: "Doctor Name",   value: docName,    set: setDocName },
                 { label: "Phone Number",  value: phone,      set: setPhone },
                 { label: "Address",       value: address,    set: setAddress },
