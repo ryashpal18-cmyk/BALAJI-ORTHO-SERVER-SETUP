@@ -1,3 +1,5 @@
+import {useEffect,useState} from "react";
+import {getClinicProfile} from "@/lib/clinicProfile";
 import { queryClient } from "@/lib/queryClient";
 import {
   LayoutDashboard, BedDouble, Calendar, Receipt, Activity,
@@ -6,7 +8,7 @@ import {
   Package, ShieldCheck, ShieldPlus, Building2, CalendarCheck, Wallet, UserPlus, Search,
 } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
-import logo from "@/assets/logo.png";
+
 import { useLocation, useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import {
@@ -62,6 +64,8 @@ export function AppSidebar() {
   const role       = getCurrentRole();
   const perms      = getCurrentPerms();
   const isAdmin    = role === "admin";
+  const [clinic,setClinic]=useState(getClinicProfile);
+  useEffect(()=>{const update=()=>setClinic(getClinicProfile());window.addEventListener("bjopd:clinic-profile-changed",update);return()=>window.removeEventListener("bjopd:clinic-profile-changed",update);},[]);
 
   const menuItems = ALL_MENU_ITEMS.filter(item => {
     if (isAdmin) return true;
@@ -101,7 +105,7 @@ export function AppSidebar() {
             flexShrink: 0, overflow: "hidden",
             boxShadow: "0 2px 8px rgba(0,0,0,0.2)",
           }}>
-            <img src={logo} alt="Balaji" style={{ height: "100%", width: "100%", objectFit: "contain" }} />
+            <img src="/bj-opd-icon.png" alt="BJ OPD" style={{ height: "100%", width: "100%", objectFit: "contain" }} />
           </div>
           {!collapsed && (
             <div style={{ display: "flex", flexDirection: "column", minWidth: 0 }}>
@@ -109,10 +113,10 @@ export function AppSidebar() {
                 fontWeight: 800, fontSize: "13px", color: "white",
                 letterSpacing: "0.3px", lineHeight: 1.2,
               }}>
-                Balaji Ortho Care
+                BJ OPD
               </span>
               <span style={{ fontSize: "10px", color: "rgba(255,255,255,0.55)", marginTop: "2px" }}>
-                {isAdmin ? "Dr. S. S. Rathore" : userName}
+                {isAdmin ? clinic.name || "Clinic Name Not Set" : userName}
               </span>
             </div>
           )}
@@ -182,7 +186,7 @@ export function AppSidebar() {
             background: "rgba(255,255,255,0.06)", marginBottom: "6px",
           }}>
             <p style={{ fontSize: "10px", color: "rgba(255,255,255,0.5)", lineHeight: 1.5 }}>
-              🏥 Balaji Ortho Care Center<br />
+              🏥 {clinic.name || "Clinic Name Not Set"}<br />
               <span style={{ color: "rgba(255,255,255,0.35)" }}>
                 {isAdmin ? "Admin" : `Staff · ${menuItems.length} pages`}
               </span>
