@@ -1,4 +1,4 @@
-import {requireClinicProfile} from "@/lib/clinicProfile";
+import {getClinicProfile,requireClinicProfile} from "@/lib/clinicProfile";
 import { useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { isOnline } from "@/lib/offlineSync";
@@ -184,7 +184,7 @@ Respond ONLY with valid JSON no markdown no extra text:
             🩻 AI X-Ray Report Generator
           </h2>
           <p className="text-sm text-muted-foreground">
-            {requireClinicProfile().name} · AI X-Ray Report
+            {getClinicProfile().name || "Clinic / Hospital"} · AI X-Ray Report
           </p>
         </div>
         <div className="rounded-md bg-primary/10 px-3 py-2 text-sm font-semibold text-primary">
@@ -297,7 +297,7 @@ Respond ONLY with valid JSON no markdown no extra text:
       {report && (
         <article className="mt-5 space-y-4 rounded-lg border bg-background p-4 print:border-0 print:p-0">
           <header className="border-b pb-3">
-            <h3 className="font-heading text-lg font-bold">{requireClinicProfile().name}</h3>
+            <h3 className="font-heading text-lg font-bold">{getClinicProfile().name || "Clinic / Hospital"}</h3>
             <p className="text-xs text-muted-foreground">
               AI X-Ray Report · {new Date().toLocaleDateString("en-IN")}
             </p>
