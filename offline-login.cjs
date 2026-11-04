@@ -116,7 +116,7 @@ function createOffline({ file, safeStorage, access, now = Date.now, fetchCloud, 
       const nextId = normalizeEmail(args.newIdentifier);
       const currentSecret = String(args.secret || '');
       const nextSecret = args.newSecret;
-      if (currentId !== record.email || !((nextId === 'admin') || /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(nextId))
+      if (currentId !== record.email || !(/^[a-z][a-z0-9._-]{2,63}$/.test(nextId) || /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(nextId))
         || nextId.length > 254 || typeof nextSecret !== 'string' || nextSecret.length < MIN_SECRET
         || nextSecret.length > MAX_SECRET || args.confirmSecret !== nextSecret
         || (nextId === 'admin' && nextSecret === 'admin')) {
