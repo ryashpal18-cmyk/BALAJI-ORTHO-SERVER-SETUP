@@ -1,8 +1,5 @@
 import {escapeHtml} from './safeReportHtml';
 import { requireClinicProfile } from './clinicProfile';
-export const PRESCRIPTION_DOCTOR_NAME='Dr. S. S. Rathore';
-// Matches the final clinic letterpad supplied by the clinic.
-export const PRESCRIPTION_DOCTOR_QUALIFICATION='BPT, MPT, DMRT';
 export type PrescriptionPrintInput={
  patient:{name:string;registration_number?:string|null;mobile?:string|null;age?:number|null;gender?:string|null};
  diagnosis:string;medicines:{name:string;dose:string;duration:string}[];advice:string;followupDate:string;date:string;

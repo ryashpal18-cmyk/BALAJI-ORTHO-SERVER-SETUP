@@ -260,7 +260,7 @@ export default function SettingsPage() {
       toast({
         title: res.attachmentMissing ? "आंशिक बैकअप सेव हुआ — कुछ फोटो नहीं मिलीं" : res.warnings?.length ? "बैकअप सेव हुआ — coverage सीमित है" : "✅ फोटो सहित बैकअप पूरा",
         description: res.mode === "electron"
-          ? `${totalRecords} रिकॉर्ड और ${res.attachmentCount||0} फोटो/PDF सेव हैं। ${res.attachmentMissing||0} फाइल missing। Documents/Balaji_Ortho_Backups देखें।`
+          ? `${totalRecords} रिकॉर्ड और ${res.attachmentCount||0} फोटो/PDF सेव हैं। ${res.attachmentMissing||0} फाइल missing। backup folder देखें।`
           : `${totalRecords} records backup ho gaye - download folder check karein`,
       });
     } else {
@@ -1185,7 +1185,7 @@ export default function SettingsPage() {
                 </div>
 
                 <p style={{ fontSize: "11px", color: "#8a9ab0", marginTop: "2px" }}>
-                  © {new Date().getFullYear()} BJ TECH SOFTWARE DEVELOPER · Dr. Yash Rathore
+                  © {new Date().getFullYear()} BJ TECH SOFTWARE DEVELOPER
                 </p>
               </CardContent>
             </Card>

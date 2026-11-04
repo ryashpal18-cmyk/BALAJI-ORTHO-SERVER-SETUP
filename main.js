@@ -1,6 +1,6 @@
 /**
  * ╔══════════════════════════════════════════════════════════════════╗
- * ║   BALAJI ORTHO CONNECT — Electron Main Process                  ║
+ * ║   BJ OPD SERVER SETUP — Electron Main Process                  ║
  * ║   Offline-First | Auto Seed DB | Cloud Sync | IPC Bridge        ║
  * ╚══════════════════════════════════════════════════════════════════╝
  */
@@ -162,8 +162,6 @@ const FRACTURE_FILE = path.join(BACKUP_DIR, 'fractures.json');
 const XRAYS_DIR     = path.join(BACKUP_DIR, 'xray_images');
 const AUTH_FILE     = path.join(BACKUP_DIR, 'auth.json');
 
-const SEED_FILE = path.join(__dirname, 'public', 'patients_seed.json');
-
 // Naya, clean backup system — purane hardcoded C:\ path se alag, taaki legacy
 // system se collide na ho. app.getPath('documents') Windows/Mac/Linux teeno
 // par sahi user-writable folder deta hai.
@@ -187,16 +185,6 @@ function ensureDirs() {
   [BACKUP_DIR, XRAYS_DIR].forEach(d => {
     if (!fs.existsSync(d)) fs.mkdirSync(d, { recursive: true });
   });
-}
-
-// ─── SEED DATABASE ON FIRST RUN ───────────────────────────────────────────────
-function seedPatientsOnFirstRun() {
-  if (fs.existsSync(PATIENTS_FILE)) return;
-  if (fs.existsSync(SEED_FILE)) {
-    fs.copyFileSync(SEED_FILE, PATIENTS_FILE);
-  } else {
-    fs.writeFileSync(PATIENTS_FILE, JSON.stringify([], null, 2));
-  }
 }
 
 // ─── JSON HELPERS ─────────────────────────────────────────────────────────────
@@ -293,14 +281,15 @@ function atomicWriteFile(fullPath, data) {
 
 // ─── INIT ALL JSON FILES ──────────────────────────────────────────────────────
 function initFiles() {
+  if (!fs.existsSync(PATIENTS_FILE)) writeJSON(PATIENTS_FILE, []);
   if (!fs.existsSync(BILLS_FILE))    writeJSON(BILLS_FILE,    []);
   if (!fs.existsSync(REPORTS_FILE))  writeJSON(REPORTS_FILE,  []);
   if (!fs.existsSync(XRAYS_FILE))    writeJSON(XRAYS_FILE,    []);
   if (!fs.existsSync(PENDING_FILE))  writeJSON(PENDING_FILE,  []);
   if (!fs.existsSync(FRACTURE_FILE)) writeJSON(FRACTURE_FILE, []);
   if (!fs.existsSync(SETTINGS_FILE)) writeJSON(SETTINGS_FILE, {
-    centerName:  'Balaji Ortho Care Center',
-    doctorName:  'Dr. S. S. Rathore',
+    centerName:  '',
+    doctorName:  '',
     supabaseUrl: authPublicConfig.url,
     supabaseKey: authPublicConfig.key,
     autoSync:    true
@@ -664,7 +653,7 @@ function openWhatsAppWindow(url) {
     height: 800,
     minWidth: 900,
     minHeight: 600,
-    title: 'WhatsApp Web — Balaji Ortho Care',
+    title: 'WhatsApp Web — BJ OPD',
     icon: path.join(__dirname, 'dist', 'bj-opd-icon.png'),
     webPreferences: {
       nodeIntegration:  false,
@@ -1173,6 +1162,17 @@ ipcMain.handle('app:sendSMS', (_e, { requestId } = {}) => {
   const job = sqliteStore.queueGetAll().find(m => m.op === 'sms' && m.payload?.messageId === requestId &&
     m.payload.deliveryState !== 'unconfirmed' && access.canMutation(m, sqliteStore));
   if (!job) return { ok: false, error: 'Authorized queued SMS required' };
+  if (job.payload.billing_id) {
+    const { familyNumber, normId } = require('./family-profile.cjs');
+    const findRecord = (table, id) => sqliteStore.cacheGetRow(table, id) ||
+      sqliteStore.cacheGetRow(table, normId(id)) || sqliteStore.cacheGetRow(table, 'local_' + normId(id));
+    const bill = findRecord('billing', job.payload.billing_id);
+    const patient = bill && findRecord('patients', bill.patient_id);
+    if (!bill || /^(cancelled|canceled|void|deleted)$/i.test(bill.status) ||
+        !patient || familyNumber(patient.mobile) !== familyNumber(job.payload.mobile)) {
+      return { ok: false, needsReview: true, error: 'Bill या मरीज का नंबर बदल गया। पुराना SMS रोक दिया गया।' };
+    }
+  }
   return sendDurableSMS({ requestId, mobile: job.payload.mobile, message: job.payload.message });
 });
 

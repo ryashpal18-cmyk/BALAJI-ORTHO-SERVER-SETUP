@@ -392,6 +392,9 @@ function commitMutation(mutation, row, idField = 'id') {
           metaSet('outreach:receipt-origin:' + String(saved.id).replace(/^local_/, '') + ':' + receipt.id, true);
       }
     }
+    if (mutation.table === 'billing' && mutation.op === 'insert') {
+      metaSet('whatsapp:bill-origin:' + String(saved[idField]).replace(/^local_/, ''), true);
+    }
     if (mutation.table === 'patients' && mutation.op === 'insert') {
       saved = registration.allocate(module.exports, saved);
       mutation = { ...mutation, payload: { ...mutation.payload, registration_number: saved.registration_number } };
@@ -424,7 +427,7 @@ function restoreSnapshot(dump) {
     for (const m of dump.queue) { const id = queueAdd(m); queueUpdate(id, { ...m, id }); }
     for (const m of dump.meta || []) getDb().prepare('INSERT OR REPLACE INTO meta VALUES (?, ?)').run(m.key,m.value);
     // Restoring an old backup must not reuse a number consumed after that backup.
-    getDb().prepare("DELETE FROM meta WHERE key LIKE 'patient-registration:%'").run();
+    getDb().prepare("DELETE FROM meta WHERE key LIKE 'patient-registration:%' OR key LIKE 'whatsapp:bill-origin:%'").run();
     metaSet("_legacy_migrated", true);
     return true;
   })();

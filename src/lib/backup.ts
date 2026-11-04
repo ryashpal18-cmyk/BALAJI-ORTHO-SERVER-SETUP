@@ -16,7 +16,7 @@ import { businessDate } from "@/lib/businessDate";
 // support karta hai (startAutoBackupScheduler se).
 // ─────────────────────────────────────────────────────────────────────────
 
-import { supabase } from "@/integrations/supabase/client";
+import { serverConnection, supabase } from "@/integrations/supabase/client";
 import { ensureCloudSession } from "./localSession";
 import { isOnline } from "@/lib/offlineSync";
 import { cacheGetAll } from "@/lib/offlineDb";
@@ -101,18 +101,21 @@ function parkRestoredMessages(backup:any) {
     entry.value=JSON.stringify(value);
   }
   let outreach=meta.find((m:any)=>m.key==='outreach:v1');
-  const value=outreach?JSON.parse(outreach.value):{settings:{enabled:true,channels:['whatsapp','sms']},campaigns:[],seen:[]};
+  const value=outreach?JSON.parse(outreach.value):{settings:{enabled:false,channels:['whatsapp','sms']},campaigns:[],seen:[]};
   value.seen=[...new Set([...(value.seen||[]),...(backup.tables.billing||[]).flatMap((bill:any)=>(bill.payment_history||[]).map((r:any)=>String(bill.id||'').replace(/^local_/,'')+':'+r.id))])];
   if(outreach)outreach.value=JSON.stringify(value);else meta.push({key:'outreach:v1',value:JSON.stringify(value)});
   snapshot.meta=meta;
 }
 export async function restoreBackup(json: string) {
   inspectBackup(json);
+  const parsed = JSON.parse(json);
+  const project = serverConnection?.url;
+  if (parsed.project && parsed.project !== project) throw new Error("यह backup किसी दूसरे server का है। सही clinic server जोड़ें।");
   const currentData = await getLocalSnapshot();
   if (currentData.queue.length || Object.entries(currentData.cache).some(([table, rows]) => !["branches", "profiles", "user_roles"].includes(table) && (rows as any[]).length))
     throw new Error("Restore केवल खाली नए डिवाइस पर करें। मौजूदा मरीज और pending डेटा सुरक्षित है।");
 
-  const backup = await restoreAttachmentData(JSON.parse(json));
+  const backup = await restoreAttachmentData(parsed);
   if (![2,3].includes(backup.formatVersion) || !backup.tables || !Array.isArray(backup.localSnapshot?.queue)) throw new Error("Version 2/3 JSON backup required");
   parkRestoredMessages(backup);
   await restoreLocalSnapshot({ cache: backup.tables, queue: backup.localSnapshot.queue, meta: backup.localSnapshot.meta || [] });
@@ -176,7 +179,7 @@ async function performBackupNow(label: string, onProgress?:(done:number,total:nu
   const photoResult={attachmentCount:attachmentFiles.files.length,attachmentMissing:attachmentFiles.missing.length,complete:attachmentFiles.complete};
   const now = new Date();
   const stamp = now.toISOString().slice(0, 19).replace(/[:T]/g, "-");
-  const baseName = `balaji_ortho_backup_${label}_${stamp}`;
+  const baseName = `bj_opd_backup_${label}_${stamp}`;
 
   const fullJson = compactAttachmentBackup({
     formatVersion: 2,
@@ -186,6 +189,7 @@ async function performBackupNow(label: string, onProgress?:(done:number,total:nu
     generatedAt: now.toISOString(),
     label,
     clinic: getClinicProfile().name || "Clinic / Hospital",
+    project: serverConnection?.url?.endsWith(".supabase.co") ? serverConnection?.url : undefined,
     tables: backupData,
   });
   const jsonString = JSON.stringify(fullJson, null, 2);

@@ -20,7 +20,7 @@ function createWhatsAppService({store,root,allowed,renderPdf,clientFactory,media
   let client=null,ready=false,qr=null,state='disconnected',error='',busy=false,stopped=false,nextConnect=0;
   const jobs=()=>store.metaGet(jobsKey)||[];
   const save=list=>store.metaSet(jobsKey,list);
-  const settings=()=>store.metaGet(settingsKey)||{auto:true,paired:false};
+  const settings=()=>store.metaGet(settingsKey)||{auto:false,paired:false};
   if(!store.metaGet('whatsapp:started-at'))store.metaSet('whatsapp:started-at',now());
   // A process that died during dispatch cannot know whether WhatsApp accepted it.
   save(jobs().map(j=>j.state==='sending'?{...j,state:'unconfirmed',error:'App बंद होने पर परिणाम अनिश्चित था; WhatsApp में जाँचें।'}:j));
@@ -155,7 +155,7 @@ function createWhatsAppService({store,root,allowed,renderPdf,clientFactory,media
       try{scheduleMonthly();}catch(e){report('WA-013','Monthly report scheduling',e,{kind:'monthly'});error=String(e.message||e);}
       if(settings().auto!==false){
         const since=store.metaGet('whatsapp:started-at');
-        for(const bill of store.cacheGetAll('billing'))if(Date.parse(bill.created_at)>=since&&!jobs().some(j=>normId(j.billId)===normId(bill.id)))try{enqueue(bill.id);}catch(e){report('WA-013','Automatic bill queue',e,{jobId:bill.id,kind:'bill',level:'warn'});}
+        for(const bill of store.cacheGetAll('billing'))if(store.metaGet('whatsapp:bill-origin:'+normId(bill.id))&&Date.parse(bill.created_at)>=since&&!jobs().some(j=>normId(j.billId)===normId(bill.id)))try{enqueue(bill.id);}catch(e){report('WA-013','Automatic bill queue',e,{jobId:bill.id,kind:'bill',level:'warn'});}
       }
       const apiMode=cloud?.status().active;
       const connection=cloud?.connection();

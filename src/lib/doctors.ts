@@ -1,7 +1,6 @@
 // ─────────────────────────────────────────────────────────────────────────
 // Doctor registration + X-ray commission helpers
 // ─────────────────────────────────────────────────────────────────────────
-// Default doctor (Dr. S. S. Rathore) database mein row nahi hai — woh hamesha
 // dropdown mein sabse upar rehta hai. Bill par doctor_id sirf tab save hota hai
 // jab koi DUSRA registered doctor chuna jaye. Isliye normal bills ka koi data
 // ya sync badalta nahi.
@@ -11,7 +10,6 @@
 // karne par commission apne-aap sahi rehta hai.
 
 export const DEFAULT_DOCTOR_VALUE = "default";
-export const DEFAULT_DOCTOR_NAME = "Dr. S. S. Rathore";
 export const DEFAULT_COMMISSION_PERCENT = 20;
 
 export type Doctor = {

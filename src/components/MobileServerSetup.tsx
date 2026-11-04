@@ -6,14 +6,19 @@ export function MobileServerSetup() {
   const [key, setKey] = useState("");
   const [error, setError] = useState("");
 
-  function connect(event: FormEvent<HTMLFormElement>) {
+  const [busy, setBusy] = useState(false);
+
+  async function connect(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (busy) return;
+    setBusy(true);
+    setError("");
     try {
-      saveMobileServerConnection(url.trim(), key.trim());
+      await saveMobileServerConnection(url.trim(), key.trim());
       window.location.reload();
     } catch (error) {
       setError(error instanceof Error ? error.message : "Server configuration could not be saved.");
-    }
+    } finally { setBusy(false); }
   }
 
   return (
@@ -30,8 +35,8 @@ export function MobileServerSetup() {
           autoComplete="off" value={key} onChange={event => setKey(event.target.value)} />
       </label>
       {error && <p role="alert" className="text-red-700">{error}</p>}
-      <button type="submit" className="w-full rounded bg-blue-800 p-2 font-semibold text-white">
-        Save server
+      <button type="submit" disabled={busy} className="w-full rounded bg-blue-800 p-2 font-semibold text-white">
+        {busy ? "जाँच हो रही है…" : "जाँचें और सेव करें"}
       </button>
     </form>
   );

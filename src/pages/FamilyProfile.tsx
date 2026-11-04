@@ -11,7 +11,7 @@ export default function FamilyProfile() {
   const {id}=useParams(),navigate=useNavigate();
   const [groups,setGroups]=useState<any[]>([]),[records,setRecords]=useState<any[]>([]),[search,setSearch]=useState(''),[error,setError]=useState(''),[qr,setQr]=useState(''),[image,setImage]=useState('');
   useEffect(()=>{let active=true;const load=async()=>{try{const bridge=(window as any).electron?.family;if(!bridge)throw Error('Family profile Windows EXE में खोलें।');const data= id?await bridge.profile(id):await bridge.list();if(active){if(id)setRecords(data);else setGroups(data);setError('');}}catch(e:any){if(active)setError(e.message);}};void load();const timer=setInterval(load,5000);return()=>{active=false;clearInterval(timer);};},[id]);
-  useEffect(()=>{let active=true;setQr('');if(id&&/^[a-zA-Z0-9_-]{1,100}$/.test(id))void QRCode.toDataURL('balajiclinic://family/'+id.replace(/^local_/,''),{width:180,margin:4}).then(url=>{if(active)setQr(url);});return()=>{active=false;};},[id]);
+  useEffect(()=>{let active=true;setQr('');if(id&&/^[a-zA-Z0-9_-]{1,100}$/.test(id))void QRCode.toDataURL('balajiserversetup://family/'+id.replace(/^local_/,''),{width:180,margin:4}).then(url=>{if(active)setQr(url);});return()=>{active=false;};},[id]);
   const execute=async(fn:()=>Promise<any>)=>{try{await fn();}catch(e:any){setError(e.message);}};
   return <DashboardLayout><div className="mx-auto max-w-6xl space-y-4 p-4"><h1 className="text-2xl font-bold">{id?'Family Profile':'Family Profiles'}</h1>
     <p className="text-sm text-muted-foreground">एक ही सही mobile number वाले सदस्य साथ दिखते हैं। हर सदस्य की Patient ID, X-ray और बिल अलग रहते हैं।</p>

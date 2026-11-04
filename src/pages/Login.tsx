@@ -4,7 +4,7 @@ import { migrateLegacyIndexedDbIfNeeded } from "@/lib/offlineDb";
 import { startAutoSync } from "@/lib/offlineSync";
 import { startAutoBackupScheduler } from "@/lib/backup";
 import { useState, useEffect } from "react";
-import { Eye, EyeOff, User, Lock, Phone, LogIn } from "lucide-react";
+import { Eye, EyeOff, User, Lock, LogIn } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useToast } from "@/hooks/use-toast";
 import { serverConnection, supabase } from "@/integrations/supabase/client";
@@ -148,9 +148,9 @@ export default function Login() {
       <div className="bj-login-layout">
         <img
           className="bj-login-poster"
-          src="./bj-opd-background.webp"
-          width={1672}
-          height={941}
+          src="./bj-opd-icon.png"
+          width={512}
+          height={512}
           alt="BJ OPD Clinic Management Software — OPD, Digital X-Ray, Ortho Care, Billing, SMS and WhatsApp"
         />
         <div className="bj-login-card">
@@ -206,6 +206,7 @@ export default function Login() {
             </div>}
             {setupError && <p role="alert" style={{ color: "#b91c1c" }}>{setupError}</p>}
 
+            {!desktop && <p className="mb-3 text-sm text-muted-foreground">मोबाइल companion के लिए इंटरनेट और clinic server ज़रूरी हैं। Offline billing और messaging setup Windows EXE में करें।</p>}
             {!desktop && !serverConnection.url && <MobileServerSetup />}
             {changeToken ? (
               <form onSubmit={saveFirstPassword} style={{ display: "grid", gap: 12 }}>
@@ -321,13 +322,6 @@ export default function Login() {
               </button>
             </form>}
 
-            <div style={{
-              marginTop: "18px", display: "flex", alignItems: "center",
-              justifyContent: "center", gap: "5px", color: "#8a9ab0", fontSize: "11px",
-            }}>
-              <Phone style={{ width: "12px", height: "12px" }} />
-              Contact: +91 8005707783
-            </div>
           </div>
         </div>
       </div>

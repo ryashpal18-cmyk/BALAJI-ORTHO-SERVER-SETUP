@@ -1,3 +1,4 @@
+import { getClinicProfile } from "@/lib/clinicProfile";
 import { requireClinicProfile } from "@/lib/clinicProfile";
 import { useMemo, useState } from "react";
 import { DashboardLayout } from "@/components/DashboardLayout";
@@ -16,7 +17,7 @@ import { isValidMobile } from "@/lib/utils";
 import { useBills } from "@/hooks/useDatabase";
 import { useAddDoctor, useDoctors, useUpdateDoctor } from "@/hooks/useDoctors";
 import {
-  DEFAULT_COMMISSION_PERCENT, DEFAULT_DOCTOR_NAME, billCommission, normId, rupees, xrayLines,
+  DEFAULT_COMMISSION_PERCENT, billCommission, normId, rupees, xrayLines,
   type Doctor,
 } from "@/lib/doctors";
 
@@ -93,7 +94,7 @@ function printDoctorReport(groups: Group[], from: string, to: string, totals: { 
     <div class="box"><div class="label">Total Commission</div><div class="value">${escapeHtml(rupees(totals.commission))}</div></div>
   </div>
   ${body}
-  <div class="sign"><div>Doctor Signature</div><div>${escapeHtml(DEFAULT_DOCTOR_NAME)}</div></div>
+  <div class="sign"><div>Doctor Signature</div><div>${escapeHtml((getClinicProfile().doctor || "Default Doctor"))}</div></div>
   <div class="no-print" style="margin-top:18px"><button style="padding:8px 18px;font-size:13px">🖨️ Print / Save as PDF</button></div>
   </body></html>`);
   win.document.close();
@@ -139,7 +140,7 @@ export default function DrReg() {
 
   const nameTaken = (n: string, exceptId?: string) => {
     const key = n.trim().toLowerCase();
-    return key === DEFAULT_DOCTOR_NAME.toLowerCase() ||
+    return key === (getClinicProfile().doctor || "Default Doctor").toLowerCase() ||
       doctors.some((d) => d.name.trim().toLowerCase() === key && normId(d.id) !== normId(exceptId));
   };
 
@@ -295,7 +296,7 @@ export default function DrReg() {
               </thead>
               <tbody>
                 <tr className="border-t">
-                  <td className="p-2 font-medium">{DEFAULT_DOCTOR_NAME}</td>
+                  <td className="p-2 font-medium">{(getClinicProfile().doctor || "Default Doctor")}</td>
                   <td className="p-2">—</td><td className="p-2">Clinic Doctor (Default)</td>
                   <td className="p-2 text-right">—</td>
                   <td className="p-2"><span className="text-xs px-2 py-0.5 rounded bg-primary/10 text-primary">Default</span></td>

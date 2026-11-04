@@ -1,6 +1,8 @@
 name: Build and release BJ OPD
 on:
   workflow_dispatch:
+  pull_request:
+    branches: [main]
   push:
     branches: [main]
 
@@ -27,12 +29,20 @@ jobs:
       - run: npm run typecheck
       - run: node tests/offline-login.cjs
       - run: node tests/clinic-profile.cjs
+      - run: node tests/textbee-settings.cjs
+      - run: node tests/whatsapp-cloud.cjs
+      - run: node tests/pc-family-whatsapp.cjs
+      - run: node tests/sms-offline.cjs
       - run: npm run build
+      - run: node tests/customer-build.cjs
       - run: npx --no-install electron-builder --win nsis --publish never
       - uses: actions/upload-artifact@v4
         with:
           name: BJ-OPD-Windows
-          path: release/BJ-OPD-Setup-*.exe
+          path: |
+            release/BJ-OPD-Setup-*.exe
+            release/BJ-OPD-Setup-*.exe.blockmap
+            release/latest.yml
           if-no-files-found: error
 
   android:
@@ -49,6 +59,7 @@ jobs:
           java-version: '21'
       - run: npm ci --ignore-scripts
       - run: npm run build
+      - run: node tests/customer-build.cjs
       - run: npx --no-install cap add android
       - run: node scripts/brand-android.cjs
       - name: Build and verify APK
@@ -112,4 +123,4 @@ jobs:
           if compgen -G 'release/*Preview*.apk' > /dev/null; then
             notes="$notes Android Preview uses a debug signing key. Future production APKs may require a fresh installation."
           fi
-          gh release create "$tag" release/*.exe release/*.apk --target "$GITHUB_SHA" --title "BJ OPD $tag" --notes "$notes"
+          gh release create "$tag" release/*.exe release/*.apk release/*.blockmap release/latest.yml --target "$GITHUB_SHA" --title "BJ OPD $tag" --notes "$notes"

@@ -1,3 +1,4 @@
+import { getClinicProfile } from "@/lib/clinicProfile";
 import { billDue, netBillAmount } from "@/lib/billAmounts";
 import { normalizeIndianMobile } from "@/lib/mobile";
 import { DashboardLayout } from "@/components/DashboardLayout";
@@ -13,7 +14,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { useDashboardStats, useTodayBills, usePendingBills, useUpdateBill } from "@/hooks/useDatabase";
 import { useNavigate } from "react-router-dom";
 import { OrthoPanel } from "@/components/ortho/OrthoPanel";
-import logo from "@/assets/logo.png";
+const logo = "./bj-opd-icon.png";
 import { useState } from "react";
 import { toast } from "@/hooks/use-toast";
 
@@ -42,7 +43,7 @@ export default function Dashboard() {
 
   // ── WhatsApp Reminder ──
   const buildDueReminder = (patient: any, total: number, paid: number, due: number) =>
-    `नमस्ते ${patient?.name || "Patient"} जी 🙏\nBalaji Ortho Care Center की सूचना।\n\nआपका बिल विवरण:\n💰 कुल बिल: ₹${total}\n✅ जमा राशि: ₹${paid}\n❗ बकाया राशि: ₹${due}\n\nकृपया ₹${due} जल्द जमा करवाएं।\n\nधन्यवाद 🙏\nBalaji Ortho Care Center`;
+    `नमस्ते ${patient?.name || "Patient"} जी 🙏\n${getClinicProfile().name || "Clinic"} की सूचना।\n\nआपका बिल विवरण:\n💰 कुल बिल: ₹${total}\n✅ जमा राशि: ₹${paid}\n❗ बकाया राशि: ₹${due}\n\nकृपया ₹${due} जल्द जमा करवाएं।\n\nधन्यवाद 🙏\n${getClinicProfile().name || "Clinic"}`;
 
   const openReminder = (patient: any, total: number, paid: number, due: number) => {
     let digits: string;
@@ -143,12 +144,12 @@ export default function Dashboard() {
               display: "flex", alignItems: "center", justifyContent: "center",
               overflow: "hidden",
             }}>
-              <img src={logo} alt="Balaji Ortho Care Center" style={{ height: "48px", width: "48px", objectFit: "contain" }} />
+              <img src={logo} alt="BJ OPD" style={{ height: "48px", width: "48px", objectFit: "contain" }} />
             </div>
             <div>
               <h1 className="module-header">🏥 Dashboard</h1>
               <p className="text-muted-foreground text-sm mt-1">
-                Welcome back, Dr. Rathore · {new Date().toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
+                Welcome · {new Date().toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
               </p>
             </div>
           </div>

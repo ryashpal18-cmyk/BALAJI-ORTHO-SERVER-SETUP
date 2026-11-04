@@ -1,3 +1,4 @@
+import { getClinicProfile } from "@/lib/clinicProfile";
 import { businessDate } from "@/lib/businessDate";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -53,7 +54,7 @@ type SmsPatient = {
 };
 
 const DEFAULT_TEMPLATE =
-  `नमस्ते {{naam}},\n\nBalaji Ortho Care Center से सूचना:\n\n{{message}}\n\nधन्यवाद 🙏`;
+  `नमस्ते {{naam}},\n\n${getClinicProfile().name || "Clinic"} से सूचना:\n\n{{message}}\n\nधन्यवाद 🙏`;
 
 function resolveTemplate(template: string, patient: SmsPatient, customBody: string) {
   return template

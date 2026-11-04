@@ -5,7 +5,7 @@ const {randomUUID,createHash}=require('crypto'),{familyNumber,normId}=require('.
 function createOutreachService({store,allowed,whatsapp,sendSMS,now=Date.now,intervalMs=30000,logger,getGateway,getClinic=()=>({name:'Clinic / Hospital'})}){
  const report=createMessagingLog(logger,'outreach-service',now);
  const key='outreach:v1';let busy=false,nextSend=0,gateway=null;
- const initial=()=>({settings:{channels:['whatsapp','sms'],enabled:true},seen:[],campaigns:[]});
+ const initial=()=>({settings:{channels:['whatsapp','sms'],enabled:false},seen:[],campaigns:[]});
  const read=()=>store.metaGet(key)||initial(),save=s=>store.metaSet(key,s),assert=()=>{if(!allowed())throw Error('Administrator login required');};
  const token=(bill,r)=>normId(bill.id)+':'+r.id;
  const old=store.metaGet(key);

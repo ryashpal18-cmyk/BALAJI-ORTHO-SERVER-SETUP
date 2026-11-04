@@ -10,8 +10,8 @@ function registerPcMessaging({app,BrowserWindow,ipcMain,dialog,shell,store,acces
   accept(process.argv);
   app.on('second-instance',(_e,args)=>accept(args));
   app.on('open-url',(e,url)=>{if(parseFamilyLink(url)){e.preventDefault();accept([url]);}});
-  if(process.defaultApp)app.setAsDefaultProtocolClient('balajiclinic',process.execPath,[path.resolve(process.argv[1]||'.')]);
-  else app.setAsDefaultProtocolClient('balajiclinic');
+  if(process.defaultApp)app.setAsDefaultProtocolClient('balajiserversetup',process.execPath,[path.resolve(process.argv[1]||'.')]);
+  else app.setAsDefaultProtocolClient('balajiserversetup');
   const allowed=()=>access.getPrincipal()?.role==='admin';
   const getClinic=()=>clinicProfile.requireProfile(store);
   ipcMain.handle('clinic:profile',()=>{if(!access.getPrincipal())throw Error('Login required');return clinicProfile.profile(store);});

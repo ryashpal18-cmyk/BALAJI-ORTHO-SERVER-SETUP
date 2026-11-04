@@ -281,8 +281,8 @@ async function applyMutation(m: QueuedMutation): Promise<void> {
     if (!electron?.sendSMS) throw new Error("Electron SMS handler unavailable");
     const result = await electron.sendSMS({ requestId: messageId, mobile, message });
     if (!result?.ok) {
-      if (result?.uncertain) {
-        await queueUpdate(m.id!, { payload: { ...m.payload, messageId, deliveryState: "unconfirmed" }, lastError: "" });
+      if (result?.uncertain || result?.needsReview) {
+        await queueUpdate(m.id!, { payload: { ...m.payload, messageId, deliveryState: "unconfirmed" }, lastError: result.needsReview ? result.error : "" });
         throw new Error("SMS_UNCONFIRMED");
       }
       throw new Error(result?.error || "SMS gateway fail");
