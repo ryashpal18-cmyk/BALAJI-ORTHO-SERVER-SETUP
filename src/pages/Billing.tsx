@@ -1,3 +1,4 @@
+import { requireClinicProfile } from "@/lib/clinicProfile";
 import { billCareCategory, buildBillWelcomeMessage } from "@/lib/billSmsMessage";
 import { cashTallyForPeriod } from "@/lib/collectionReport";
 import QRCode from "qrcode";
@@ -119,8 +120,9 @@ function getWhatsAppBillMessage(
 }
 
 function getWhatsAppReminderMessage(patient: string, total: number, paid: number, due: number) {
+  const clinic = requireClinicProfile();
   return `नमस्ते ${patient} जी 🙏
-Balaji Ortho Care Center की सूचना।
+${clinic.name} की सूचना।
 
 आपका बिल विवरण:
 💰 कुल बिल: ₹${total}
@@ -130,10 +132,11 @@ Balaji Ortho Care Center की सूचना।
 कृपया ₹${due} जल्द जमा करवाएं।
 
 धन्यवाद 🙏
-Balaji Ortho Care Center`;
+${clinic.name}`;
 }
 
 function buildInvoiceHTML(bill: any, logoUrl: string = "/images/logo.png") {
+  const clinic = requireClinicProfile();
   const patientName = escapeHtml((bill.patients as any)?.name || "Patient");
   const patientAge = (bill.patients as any)?.age || "—";
   const patientGender = (bill.patients as any)?.gender || "—";
@@ -211,8 +214,8 @@ function buildInvoiceHTML(bill: any, logoUrl: string = "/images/logo.png") {
         <div style="display:flex;align-items:center;gap:10px;">
           <img src="${logoUrl}" style="width:36px;height:36px;object-fit:contain;border-radius:6px;background:#fff;padding:2px;" alt="Logo" crossorigin="anonymous" />
           <div>
-            <div style="font-size:14px;font-weight:800;color:#ffffff;letter-spacing:0.3px;">Balaji Ortho Care Center</div>
-            <div style="font-size:8px;color:#bae6fd;margin-top:1px;">Dr. S. S. Rathore (DMRT | BPT) &nbsp;|&nbsp; Khinwara, Raj. – 306502</div>
+            <div style="font-size:14px;font-weight:800;color:#ffffff;letter-spacing:0.3px;">${escapeHtml(clinic.name)}</div>
+            <div style="font-size:8px;color:#bae6fd;margin-top:1px;">${escapeHtml([clinic.doctor, clinic.address, clinic.phone].filter(Boolean).join(" | "))}</div>
           </div>
         </div>
         <div style="text-align:right;">
