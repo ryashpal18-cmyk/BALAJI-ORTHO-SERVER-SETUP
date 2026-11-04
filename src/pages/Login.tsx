@@ -121,6 +121,21 @@ export default function Login() {
       setLoading(false);
     }
   };
+  const saveFirstPassword = async (event: React.FormEvent) => {
+    event.preventDefault();
+    setLoading(true);
+    try {
+      const result = await (window as any).electron.changeOfflineCredentials({
+        identifier: "admin", secret: "admin", newIdentifier: nextIdentifier,
+        newSecret: nextSecret, confirmSecret: nextConfirm, changeToken, remember,
+      });
+      if (!result?.success) throw new Error(result?.error || "Could not change login");
+      setChangeToken(null); setNextSecret(""); setNextConfirm("");
+      await enter(result.principal);
+    } catch (error: any) {
+      toast({ title: "New password not saved", description: error?.message, variant: "destructive" });
+    } finally { setLoading(false); }
+  };
   return (
     <main className="bj-login">
       <div className="bj-login-layout">
