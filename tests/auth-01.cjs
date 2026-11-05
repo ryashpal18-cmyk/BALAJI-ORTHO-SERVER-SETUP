@@ -7,7 +7,7 @@ async function scenario(mode,configured=true,failure='',role='admin'){
  const calls=[],saved=new Map(),profile={role,pages:role==='staff'?['/opd']:[],displayName:'Test'};
  const local=async()=>{calls.push(configured?'local-login':'local-setup');return failure==='password'?{success:false,error:'wrong password'}:{success:true,principal:profile}};
  const ctx={loading:false,ready:true,desktop:true,mode,configured,confirmPassword:'test-only',remember:true,
- username:'owner@example.test',password:'test-only',queryClient:{clear(){}},resetCloudConnection(){},
+ username:'owner@example.test',password:'test-only',queryClient:{clear(){},invalidateQueries(){calls.push("branches-refresh")}},resetCloudConnection(){},
  setLoading(){},setPassword(){},setConfirmPassword(){},toast(){calls.push('error')},navigate:p=>calls.push(p),
  STORAGE_KEYS:{IS_LOGGED_IN:'logged',USER_NAME:'name',USER_ROLE:'role',USER_PERMS:'pages'},
  localStorage:{setItem:(k,v)=>saved.set(k,v),removeItem:k=>saved.delete(k)},
@@ -23,7 +23,7 @@ async function scenario(mode,configured=true,failure='',role='admin'){
 (async()=>{
  for(const configured of [false,true]){
   const r=await scenario('local',configured);assert.equal(r.saved.get('role'),'admin');
-  assert.ok(r.calls.includes('/dashboard'));assert.ok(r.calls.includes('sync'));assert.ok(r.calls.includes('backup'));
+  assert.ok(r.calls.includes('/dashboard'));assert.ok(r.calls.includes('sync'));assert.ok(r.calls.includes('branches-refresh'));assert.ok(r.calls.includes('backup'));
   assert.ok(!r.calls.some(c=>c.startsWith('cloud')),'local entry never waits for cloud');
  }
  const wrong=await scenario('local',true,'password');assert.equal(wrong.saved.size,0);assert.ok(wrong.calls.includes('error'));assert.ok(!wrong.calls.includes('/dashboard'));

@@ -43,6 +43,7 @@ export default function Login() {
   const enter = async (profile: any) => {
     if (profile.role === "admin") await migrateLegacyIndexedDbIfNeeded();
     displaySession(profile);
+    void queryClient.invalidateQueries({ queryKey: ["branches"] });
     // Load the clinic server's saved identity before any new patient-facing document or message.
     const bridge=(window as any).electron;
     if(bridge?.clinicProfile){

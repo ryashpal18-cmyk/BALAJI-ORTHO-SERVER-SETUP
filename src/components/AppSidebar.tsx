@@ -105,7 +105,7 @@ export function AppSidebar() {
             flexShrink: 0, overflow: "hidden",
             boxShadow: "0 2px 8px rgba(0,0,0,0.2)",
           }}>
-            <img src="/bj-opd-icon.png" alt="BJ OPD" style={{ height: "100%", width: "100%", objectFit: "contain" }} />
+            <img src={import.meta.env.BASE_URL + "bj-opd-icon.png"} alt="BJ OPD" style={{ height: "100%", width: "100%", objectFit: "contain" }} />
           </div>
           {!collapsed && (
             <div style={{ display: "flex", flexDirection: "column", minWidth: 0 }}>

@@ -310,10 +310,10 @@ export function startAutoBackupScheduler() {
   schedulerStarted = true;
 
   const checkAndRun = async () => {
-    const bridge = (window as any).electron;
-    if (!bridge?.backupWriteEncrypted || !bridge.checkAuth) return;
+    const bridge = window.electron;
+    if (!bridge?.backupAutomaticReady || !bridge.checkAuth) return;
     const auth = await bridge.checkAuth();
-    if (!auth?.valid || auth.principal?.role !== "admin") return;
+    if (!auth?.valid || auth.principal?.role !== "admin" || !await bridge.backupAutomaticReady()) return;
 
     const today = todayStr();
 

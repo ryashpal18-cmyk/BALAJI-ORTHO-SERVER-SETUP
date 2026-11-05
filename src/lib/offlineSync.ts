@@ -18,6 +18,7 @@ import { metaSet, commitMutation, queueGetAll, queueRemove, queueUpdate, queueRe
 declare global {
   interface Window {
     electron?: {
+      backupAutomaticReady?: () => Promise<boolean>;
       isOnline?: () => Promise<{ online: boolean }>;
       writeLog?: (data: { fileName: string; line: string }) => Promise<void>;
       [key: string]: any;

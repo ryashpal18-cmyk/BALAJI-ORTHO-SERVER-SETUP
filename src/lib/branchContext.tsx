@@ -25,8 +25,10 @@ const BranchContext = createContext<BranchContextValue | undefined>(undefined);
 export function useBranches() {
   return useQuery({
     queryKey: ["branches"],
-    staleTime: 60000,
+    staleTime: query => query.state.data?.length ? 60000 : 0,
     queryFn: async (): Promise<Branch[]> => {
+      const bridge = (window as any).electron;
+      if (bridge?.checkAuth && !(await bridge.checkAuth()).valid) return [];
       const rows = await offlineFetch<Branch>("branches", async () => {
           const { data, error } = await supabase
             .from("branches" as any)

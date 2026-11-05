@@ -159,6 +159,7 @@ contextBridge.exposeInMainWorld('electron', {
 
   // ── Backup ─────────────────────────────────────────────────
   backupGetDir:       ()      => ipcRenderer.invoke('backup:getDir'),
+  backupAutomaticReady: () => ipcRenderer.invoke('backup:automaticReady'),
   backupSetAutomaticPassword: password => ipcRenderer.invoke('backup:setAutomaticPassword', password),
   backupWriteEncrypted: data => ipcRenderer.invoke('backup:writeEncrypted', data),
   backupDecrypt: data => ipcRenderer.invoke('backup:decrypt', data),
