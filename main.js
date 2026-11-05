@@ -1104,6 +1104,9 @@ ipcMain.handle('backup:writeJson', async (_e, { fileName, jsonString }) => {
 });
 
 const autoBackupSecretPath = path.join(SERVER_DATA_DIR, 'automatic-backup.enc');
+ipcMain.handle('backup:automaticReady', () =>
+  fs.existsSync(autoBackupSecretPath) && safeStorage.isEncryptionAvailable() &&
+  safeStorage.getSelectedStorageBackend?.() !== 'basic_text');
 ipcMain.handle('backup:setAutomaticPassword', (_e, passphrase) => {
   require('./backup-encryption.cjs').validatePassphrase(passphrase);
   if (!safeStorage.isEncryptionAvailable() || safeStorage.getSelectedStorageBackend?.() === 'basic_text') {
@@ -1255,7 +1258,7 @@ function getDiagnostics() {
       }))()`),5000);
     },
     cloudProbe: async () => {
-      if (!authPublicConfig.url || !authPublicConfig.key) return [{code:'CLOUD-001',status:'error',title:'Cloud public configuration missing',evidence:'Bundled URL/public key unavailable'}];
+      if (!authPublicConfig.url || !authPublicConfig.key) return [{code:'CLOUD-001',status:'skipped',title:'Cloud Sync is not configured',evidence:'This PC has no saved cloud connection',action:'Cloud sync चाहिए तो Settings में Server Setup खोलें।'}];
       // No token refresh, login, mutation, enrollment, gateway call or patient body is performed here.
       if (!verifiedCloudToken) return [{code:'CLOUD-002',status:'skipped',title:'Authenticated cloud read check',evidence:'No current verified cloud session; local login is independent.'}];
       const epoch=authGeneration,token=verifiedCloudToken;

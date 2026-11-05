@@ -77,6 +77,17 @@ export default function SettingsPage() {
   const [registrationPrefix, setRegistrationPrefix] = useState(() => getClinicProfile().registration_prefix || "BAOR");
   const [invoicePrefix, setInvoicePrefix] = useState(() => getClinicProfile().invoice_prefix || "INV");
 
+  const [savingClinic, setSavingClinic] = useState(false);
+  const [automaticBackupReady, setAutomaticBackupReady] = useState<boolean | null>(null);
+  useEffect(() => {
+    if (!isAdmin || tab !== "backup" || !window.electron?.backupAutomaticReady) return;
+    let active = true;
+    void window.electron.backupAutomaticReady().then(ready => {
+      if (active) setAutomaticBackupReady(ready);
+    }).catch(() => { if (active) setAutomaticBackupReady(null); });
+    return () => { active = false; };
+  }, [isAdmin, tab]);
+
   useEffect(() => {
     const bridge=(window as any).electron;
     if(!bridge?.clinicProfile || !isAdmin) return;
@@ -287,6 +298,7 @@ export default function SettingsPage() {
     try {
       if (!await bridge?.backupSetAutomaticPassword?.(backupPassphrase)) throw new Error("Windows secure storage उपलब्ध नहीं है।");
       setBackupPassphrase("");
+      setAutomaticBackupReady(true);
       toast({ title: "Automatic Backup Password सेव हुआ", description: "Daily या Weekly toggle चालू रखें। Restore के लिए पासवर्ड अपने पास सुरक्षित रखें।" });
     } catch (error: any) {
       toast({ title: "Automatic backup password सेव नहीं हुआ", description: error.message, variant: "destructive" });
@@ -345,20 +357,34 @@ export default function SettingsPage() {
 
   // ── Save handlers ──
   const handleSaveClinic = async () => {
-    if (!isAdmin || !(window as any).electron?.saveClinicProfile) return;
+    const bridge = (window as any).electron;
+    if (!isAdmin || !bridge?.saveClinicProfile || savingClinic) return;
+    const name = clinicName.trim();
+    const registration = registrationPrefix.trim().toUpperCase() || "BAOR";
+    const invoice = invoicePrefix.trim().toUpperCase() || "INV";
+    const invalidField = name.length < 3 ? "Clinic / Hospital Name में कम से कम 3 अक्षर डालें।"
+      : !/^[A-Z]{2,12}$/.test(registration) ? "Registration prefix में 2–12 अंग्रेज़ी अक्षर डालें, जैसे BO."
+      : !/^[A-Z]{2,12}$/.test(invoice) ? "Invoice prefix में 2–12 अंग्रेज़ी अक्षर डालें, जैसे INV."
+      : "";
+    if (invalidField) {
+      toast({title:"Clinic information not saved", description:invalidField, variant:"destructive"});
+      return;
+    }
+    setSavingClinic(true);
     try {
-      const proposed = {name:clinicName,doctor:docName,phone,address,registration_prefix:registrationPrefix || "BAOR",invoice_prefix:invoicePrefix || "INV"};
-      const bridge = (window as any).electron;
-      // The clinic server owns the settings on a desktop installation.
-      const confirmed = bridge?.saveClinicProfile ? await bridge.saveClinicProfile(proposed) : proposed;
+      const confirmed = await bridge.saveClinicProfile({
+        name, doctor:docName, phone, address, registration_prefix:registration, invoice_prefix:invoice,
+      });
       saveClinicProfile(confirmed);
+      setRegistrationPrefix(confirmed.registration_prefix);
+      setInvoicePrefix(confirmed.invoice_prefix);
       void ensureCloudSession().then(ready => { if (ready) return syncClinicProfile(true); }).catch((error: Error) => {
         toast({title:"Clinic Info PC पर सेव है, cloud sync बाकी", description:error.message, variant:"destructive"});
       });
       toast({title:"Clinic details saved",description:"New bills, PDFs, WhatsApp and SMS will use this clinic name."});
     } catch (error:any) {
       toast({title:"Clinic information not saved",description:error.message,variant:"destructive"});
-    }
+    } finally { setSavingClinic(false); }
   };
 
   const loadServerClinic = async () => {
@@ -584,7 +610,8 @@ export default function SettingsPage() {
                     style={{ fontSize: "13px", background: "#f8fafc" }} />
                 </div>
               ))}
-              <Button disabled={!isElectron} onClick={handleSaveClinic} style={{ width: "fit-content", gap: "6px" }}>
+              <p className="text-xs text-muted-foreground">Prefix में 2–12 अंग्रेज़ी अक्षर रखें। खाली छोड़ने पर BAOR और INV लगेंगे।</p>
+              <Button disabled={!isElectron || savingClinic} onClick={handleSaveClinic} style={{ width: "fit-content", gap: "6px" }}>
                 <Check style={{ width: "14px", height: "14px" }} />
                 Save Changes
               </Button>
@@ -1059,6 +1086,9 @@ export default function SettingsPage() {
                 </Button>
 
                 {isElectron && <div className="space-y-2 rounded border p-3">
+                  {automaticBackupReady === false && (dailyOn || weeklyOn) && <p role="status" className="text-sm text-amber-700">
+                    Automatic Backup रुका है। शुरू करने के लिए नीचे पासवर्ड सेव करें।
+                  </p>}
                   <Label htmlFor="backup-passphrase">Encrypted backup / restore password</Label>
                   <Input id="backup-passphrase" type="password" autoComplete="new-password" maxLength={256}
                     value={backupPassphrase} onChange={event => setBackupPassphrase(event.target.value)} />

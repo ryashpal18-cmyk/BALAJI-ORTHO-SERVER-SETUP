@@ -1,3 +1,4 @@
+import invoiceLogo from "../../public/bj-opd-icon.png?inline";
 import { getClinicProfile } from "@/lib/clinicProfile";
 import { requireClinicProfile } from "@/lib/clinicProfile";
 import { billCareCategory, buildBillWelcomeMessage } from "@/lib/billSmsMessage";
@@ -136,7 +137,7 @@ ${clinic.name} की सूचना।
 ${clinic.name}`;
 }
 
-function buildInvoiceHTML(bill: any, logoUrl: string = "/bj-opd-icon.png") {
+function buildInvoiceHTML(bill: any, logoUrl: string = invoiceLogo) {
   const clinic = requireClinicProfile();
   const patientName = escapeHtml((bill.patients as any)?.name || "Patient");
   const patientAge = (bill.patients as any)?.age || "—";
@@ -282,7 +283,12 @@ function buildInvoiceHTML(bill: any, logoUrl: string = "/bj-opd-icon.png") {
 }
 
 async function printInvoice(bill: any) {
-  const logoUrl = window.location.origin + "/bj-opd-icon.png";
+  try { requireClinicProfile(); }
+  catch (error) {
+    toast({ title: "पहले Clinic Info सेव करें", description: (error as Error).message, variant: "destructive" });
+    return;
+  }
+  const logoUrl = invoiceLogo;
   const win = window.open("", "_blank", "width=900,height=700");
   if (!win) return;
   try { bill = {...bill, familyQr:await QRCode.toDataURL("balajiserversetup://family/"+String(bill.patient_id).replace(/^local_/,""),{width:180,margin:4})}; } catch {win.close();toast({title:"QR नहीं बना; दोबारा कोशिश करें",variant:"destructive"});return;}
@@ -338,7 +344,12 @@ async function printInvoice(bill: any) {
 }
 
 async function previewInvoice(bill: any) {
-  const logoUrl = window.location.origin + "/bj-opd-icon.png";
+  try { requireClinicProfile(); }
+  catch (error) {
+    toast({ title: "पहले Clinic Info सेव करें", description: (error as Error).message, variant: "destructive" });
+    return;
+  }
+  const logoUrl = invoiceLogo;
   const win = window.open("", "_blank", "width=700,height=900");
   if (!win) return;
   try { bill = {...bill, familyQr:await QRCode.toDataURL("balajiserversetup://family/"+String(bill.patient_id).replace(/^local_/,""),{width:180,margin:4})}; } catch {win.close();toast({title:"QR नहीं बना; दोबारा कोशिश करें",variant:"destructive"});return;}
@@ -352,18 +363,8 @@ async function previewInvoice(bill: any) {
   win.document.close();
 }
 
-async function getBase64Image(url: string): Promise<string> {
-  const res = await fetch(url);
-  const blob = await res.blob();
-  return new Promise((resolve) => {
-    const reader = new FileReader();
-    reader.onload = () => resolve(reader.result as string);
-    reader.readAsDataURL(blob);
-  });
-}
-
 async function generateAndUploadPDF(bill: any): Promise<string | null> {
-  const logoUrl = await getBase64Image(window.location.origin + "/bj-opd-icon.png");
+  const logoUrl = invoiceLogo;
   bill = {...bill, familyQr:await QRCode.toDataURL("balajiserversetup://family/"+String(bill.patient_id).replace(/^local_/,""),{width:180,margin:4})};
   const html = buildInvoiceHTML(bill, logoUrl);
 
@@ -728,6 +729,10 @@ const filteredPatients = useMemo(() => {
   };
 
   const handleResendWhatsApp = async (bill: any) => {
+    if (!getClinicProfile().name) {
+      toast({title:"पहले Settings → Clinic Info में क्लिनिक का नाम सेव करें", variant:"destructive"});
+      return;
+    }
     const desktop = (window as any).electron?.whatsapp;
     if (desktop) {
       try {await desktop.enqueue(bill.id);toast({title:"QR वाला bill PDF WhatsApp queue में सेव है",description:"WhatsApp page में QR scan करके जोड़ें।"});}
@@ -757,6 +762,17 @@ const filteredPatients = useMemo(() => {
       freshPdfUrl || null,
     );
     openWhatsAppWeb(mobile, msg);
+  };
+
+  const openSavedInvoice = async (bill: any, download: boolean) => {
+    try {
+      requireClinicProfile();
+      const bridge = window.electron?.whatsapp;
+      if (bridge) await bridge.pdf(bill.id, download);
+      else await previewInvoice(bill);
+    } catch (error) {
+      toast({title:"Invoice PDF नहीं खुली", description:(error as Error).message, variant:"destructive"});
+    }
   };
 
   const handleEdit = (bill: any) => {
@@ -1480,12 +1496,12 @@ const filteredPatients = useMemo(() => {
                                 variant="ghost"
                                 size="icon"
                                 className="h-7 w-7"
-                                onClick={() => {const bridge=(window as any).electron?.whatsapp;if(bridge)void bridge.pdf(bill.id,false).catch((e:any)=>toast({title:e.message,variant:"destructive"}));else void previewInvoice(bill);}}
+                                onClick={() => void openSavedInvoice(bill, false)}
                                 title="Preview Invoice"
                               >
                                 <Eye className="h-3 w-3" />
                               </Button>
-                              {(window as any).electron?.whatsapp && <Button variant="ghost" size="icon" className="h-7 w-7" title="Download QR Bill PDF" onClick={() => void (window as any).electron.whatsapp.pdf(bill.id,true).catch((e:any)=>toast({title:e.message,variant:"destructive"}))}><Download className="h-3 w-3"/></Button>}
+                              {(window as any).electron?.whatsapp && <Button variant="ghost" size="icon" className="h-7 w-7" title="Download QR Bill PDF" onClick={() => void openSavedInvoice(bill, true)}><Download className="h-3 w-3"/></Button>}
                               <Button
                                 variant="ghost"
                                 size="icon"
@@ -1499,7 +1515,7 @@ const filteredPatients = useMemo(() => {
                                 variant="ghost"
                                 size="icon"
                                 className="h-7 w-7"
-                                onClick={() => printInvoice(bill)}
+                                onClick={() => void printInvoice(bill).catch((error: Error) => toast({ title: "Print नहीं खुला", description: error.message, variant: "destructive" }))}
                                 title="Print"
                               >
                                 <Printer className="h-3 w-3" />
@@ -1508,7 +1524,7 @@ const filteredPatients = useMemo(() => {
                                 variant="ghost"
                                 size="icon"
                                 className="h-7 w-7 text-success"
-                                onClick={() => handleResendWhatsApp(bill)}
+                                onClick={() => void handleResendWhatsApp(bill).catch((error: Error) => toast({title:"WhatsApp invoice नहीं खुला", description:error.message, variant:"destructive"}))}
                                 title="Resend WhatsApp"
                               >
                                 <MessageCircle className="h-3 w-3" />
