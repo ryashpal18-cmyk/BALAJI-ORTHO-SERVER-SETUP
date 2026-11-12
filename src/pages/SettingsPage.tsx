@@ -132,7 +132,8 @@ export default function SettingsPage() {
   const [appVersionInfo, setAppVersionInfo] = useState<{ version: string; electron: string; node: string; platform: string } | null>(null);
   const [logsDir,        setLogsDir]        = useState<string | null>(null);
   const [snapshotDir,    setSnapshotDir]    = useState<string | null>(null);
-  const [isElectron,   setIsElectron]     = useState(false);
+  // Detect the desktop bridge immediately so Clinic Info can be saved without first opening the Backup tab.
+  const [isElectron,   setIsElectron]     = useState(() => !!(window as any).electron?.saveClinicProfile);
 
   // ── Auto-Updater state machine ──
   type UpdateStage =
@@ -152,7 +153,7 @@ export default function SettingsPage() {
   // ── Backup tab: load folder/file info when opened ──
   useEffect(() => {
     if (tab !== "backup") return;
-    setIsElectron(!!(window as any).electron?.backupGetDir);
+    setIsElectron(!!((window as any).electron?.backupGetDir || (window as any).electron?.saveClinicProfile));
     refreshBackupInfo();
   }, [tab]);
 
@@ -358,7 +359,11 @@ export default function SettingsPage() {
   // ── Save handlers ──
   const handleSaveClinic = async () => {
     const bridge = (window as any).electron;
-    if (!isAdmin || !bridge?.saveClinicProfile || savingClinic) return;
+    if (savingClinic) return;
+    if (!isAdmin || !bridge?.saveClinicProfile) {
+      toast({title:"Clinic information not saved", description:!isAdmin ? "Admin login आवश्यक है।" : "Clinic Info बदलने के लिए Windows EXE इस्तेमाल करें।", variant:"destructive"});
+      return;
+    }
     const name = clinicName.trim();
     const registration = registrationPrefix.trim().toUpperCase() || "BAOR";
     const invoice = invoicePrefix.trim().toUpperCase() || "INV";
