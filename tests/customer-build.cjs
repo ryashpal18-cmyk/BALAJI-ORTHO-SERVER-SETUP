@@ -13,7 +13,8 @@ const forbiddenText = [
   /balajiclinic:\/\//i,
 ];
 const retiredAssets = new Set([
-  'clinic-letterpad.jpg', 'logo.png', 'bj-opd-background.webp',
+  // bj-opd-background.webp is the current BJ OPD login poster, not a retired asset.
+  'clinic-letterpad.jpg', 'logo.png',
   'bj-opd-background.svg', 'patients_seed.json',
 ]);
 
