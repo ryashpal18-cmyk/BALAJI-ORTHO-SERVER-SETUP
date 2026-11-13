@@ -38,7 +38,7 @@ const DialogContent = React.forwardRef<
       className={cn(
         // ✅ FIX: top-aligned, full scrollable, no cut-off
         // inset-0 ke andar center nahi, top se start hoga
-        "fixed left-[50%] top-4 z-50 grid w-full max-w-lg translate-x-[-50%] gap-4 border bg-background p-6 shadow-lg duration-200 sm:rounded-lg",
+        "fixed left-[50%] top-4 z-50 grid w-[calc(100%-1rem)] max-w-lg translate-x-[-50%] gap-4 border bg-background p-6 shadow-lg duration-200 sm:rounded-lg",
         // Max height = screen - top margin - bottom margin, scroll andar hoga
         "max-h-[calc(100vh-2rem)] overflow-y-auto",
         "data-[state=open]:animate-in data-[state=closed]:animate-out",

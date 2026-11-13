@@ -35,7 +35,7 @@ const AlertDialogContent = React.forwardRef<
       ref={ref}
       className={cn(
         // ✅ FIX: top-aligned, full scrollable, no cut-off
-        "fixed left-[50%] top-4 z-50 grid w-full max-w-lg translate-x-[-50%] gap-4 border bg-background p-6 shadow-lg duration-200 sm:rounded-lg",
+        "fixed left-[50%] top-4 z-50 grid w-[calc(100%-1rem)] max-w-lg translate-x-[-50%] gap-4 border bg-background p-6 shadow-lg duration-200 sm:rounded-lg",
         "max-h-[calc(100vh-2rem)] overflow-y-auto",
         "data-[state=open]:animate-in data-[state=closed]:animate-out",
         "data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0",
