@@ -22,8 +22,13 @@ async function performSync(admin: boolean, useCloud: boolean) {
   if (error) throw Error(error.message);
   let remote = data as CloudProfile | null;
 
-  if (useCloud && !remote) throw Error("Server पर Clinic Info उपलब्ध नहीं है।");
-  if (state?.profile.name && !useCloud && (state.pending || !remote)) {
+  // First time: the server has no clinic row yet. If this PC already has Clinic Info,
+  // create the server row automatically (also when "Server की Clinic Info लोड करें" is pressed).
+  const firstTime = !remote && !!state?.profile.name;
+  if (useCloud && !remote && !firstTime) {
+    throw Error("Server पर अभी Clinic Info नहीं है। पहले Settings → Clinic Info भरकर Save Changes दबाएँ; server पर row अपने आप बन जाएगी।");
+  }
+  if (state?.profile.name && (firstTime || (!useCloud && state.pending))) {
     const revision = state.pending || crypto.randomUUID();
     if (remote?.revision !== revision) {
       if (remote && remote.revision !== state.revision) {

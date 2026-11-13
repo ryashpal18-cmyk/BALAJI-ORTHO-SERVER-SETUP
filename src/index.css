@@ -460,7 +460,10 @@ textarea:focus {
   border-radius: 20px !important;
   border: 1.5px solid rgba(30,87,176,0.15) !important;
   box-shadow: 0 24px 80px rgba(13,35,81,0.30) !important;
-  animation: scaleIn 0.22s cubic-bezier(0.22,0.61,0.36,1) both !important;
+  /* Opacity-only: a transform animation (scaleIn, fill "both") overwrote the
+     translate-x-[-50%] centering, so popups started at mid-screen and were cut
+     off on the right (APK and desktop). */
+  animation: fadeIn 0.2s ease both !important;
 }
 
 [data-slot="dialog-header"],

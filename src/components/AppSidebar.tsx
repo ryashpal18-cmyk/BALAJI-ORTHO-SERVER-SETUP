@@ -19,7 +19,7 @@ import {
 import { getCurrentRole, getCurrentPerms } from "@/lib/appConfig";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { BranchSelector } from "@/components/BranchSelector";
-import { resetCloudConnection } from "@/lib/localSession";
+import { resetCloudConnection, forgetWebProfile } from "@/lib/localSession";
 
 const ALL_MENU_ITEMS = [
   { title: "Patient Search", url: "/patient-search", icon: Search },
@@ -57,8 +57,9 @@ const ALL_MENU_ITEMS = [
 ];
 
 export function AppSidebar() {
-  const { state } = useSidebar();
-  const collapsed  = state === "collapsed";
+  const { state, isMobile, setOpenMobile } = useSidebar();
+  // On a phone the full-screen menu must close after a tap, otherwise it keeps covering the page.
+  const collapsed  = state === "collapsed" && !isMobile;
   const location   = useLocation();
   const navigate   = useNavigate();
   const role       = getCurrentRole();
@@ -78,6 +79,8 @@ export function AppSidebar() {
     queryClient.clear();
     await (window as any).electron?.logout?.();
     resetCloudConnection();
+    forgetWebProfile();
+    if (isMobile) setOpenMobile(false);
     // Main-process logout is already durable; cloud revocation must not stall navigation.
     void supabase.auth.signOut({ scope: "local" }).catch(() => {});
     localStorage.removeItem("isLoggedIn");
@@ -162,6 +165,7 @@ export function AppSidebar() {
                           textDecoration: "none",
                         }}
                         activeClassName=""
+                        onClick={() => { if (isMobile) setOpenMobile(false); }}
                         className="sidebar-link zoom-hover"
                       >
                         <item.icon style={{

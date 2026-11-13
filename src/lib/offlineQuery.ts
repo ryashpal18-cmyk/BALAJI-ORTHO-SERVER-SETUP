@@ -32,12 +32,14 @@ function serialize<T>(key: string, action: () => Promise<T>): Promise<T> {
 }
 function syncLater() { void isOnline().then(online => { if (online) return runSync(); }).catch(e => cLog.warn("sync", "Background sync failed", e)); }
 
-const refreshes = new Set<string>();
+const refreshes = new Map<string, Promise<void>>();
 const refreshedAt = new Map<string, number>();
-function refreshLocalTable(table: string, fetcher: () => Promise<any[]>, idField: string) {
-  if (typeof navigator === "undefined" || !navigator.onLine || refreshes.has(table) || Date.now() - (refreshedAt.get(table) || 0) < 3000) return;
-  refreshes.add(table);
-  void (async () => {
+const isMobileWeb = () => typeof window !== "undefined" && !(window as any).electron?.offline;
+function refreshLocalTable(table: string, fetcher: () => Promise<any[]>, idField: string): Promise<void> {
+  const running = refreshes.get(table);
+  if (running) return running;
+  if (typeof navigator === "undefined" || !navigator.onLine || Date.now() - (refreshedAt.get(table) || 0) < 3000) return Promise.resolve();
+  const job = (async () => {
     try {
       if (!(await ensureCloudSession())) return;
       const before = JSON.stringify(await cacheGetAll(table));
@@ -46,18 +48,22 @@ function refreshLocalTable(table: string, fetcher: () => Promise<any[]>, idField
       refreshedAt.set(table, Date.now());
       if (before !== JSON.stringify(await cacheGetAll(table))) void queryClient.invalidateQueries();
     } catch (error) { cLog.warn("offline", `${table}: background refresh delayed; local data retained`, error); }
-    finally { refreshes.delete(table); }
-  })();
+  })().finally(() => refreshes.delete(table));
+  refreshes.set(table, job);
+  return job;
+}
+// Mobile has no durable PC cache: on first open wait for the server instead of returning an empty list.
+async function readWithRefresh(table: string, fetcher: () => Promise<any[]>, idField: string) {
+  const cached = await cacheGetAll(table);
+  const refresh = refreshLocalTable(table, fetcher, idField);
+  if (isMobileWeb() && cached.length === 0) { await refresh; return cacheGetAll(table); }
+  return cached;
 }
 export async function offlineFetch<T = any>(table: string, fetcher: () => Promise<T[]>, opts: { idField?: string } = {}): Promise<T[]> {
-  const cached = await cacheGetAll(table);
-  refreshLocalTable(table, fetcher, opts.idField || "id");
-  return cached as T[];
+  return (await readWithRefresh(table, fetcher, opts.idField || "id")) as T[];
 }
 export async function offlineFetchScoped<T = any>(table: string, fetcher: () => Promise<T[]>, fallbackFilter: (rows: any[]) => any[], opts: { idField?: string } = {}): Promise<T[]> {
-  const cached = await cacheGetAll(table);
-  refreshLocalTable(table, fetcher, opts.idField || "id");
-  return fallbackFilter(cached) as T[];
+  return fallbackFilter(await readWithRefresh(table, fetcher, opts.idField || "id")) as T[];
 }
 
 export async function offlineInsert(table: string, payload: any, opts: { idField?: string } = {}) {
@@ -74,7 +80,7 @@ export async function offlineInsert(table: string, payload: any, opts: { idField
       const parent = row.patient_id ? await cacheGetRow("patients", row.patient_id) : null;
       const branches = (await cacheGetAll("branches")).filter(b => b.is_active);
       row.branch_id = parent?.branch_id || localStorage.getItem("bocc_selected_branch") || (branches.length === 1 ? branches[0].id : null);
-      if (!row.branch_id) throw new Error("Select a branch before saving this record");
+      if (!row.branch_id) throw new Error("Branch नहीं मिली। ऊपर से Branch चुनें, या PC software में Settings → Clinic setup से branch बनाएँ। (Select a branch before saving this record)");
     }
     if (table === "billing") row = withPaymentHistory({ id: rowId, amount_paid: 0 }, row, tempId().slice(6), row.created_at);
     const saved = await commitMutation({ table, op: "insert", payload: row, tempId: rowId }, row, idField);

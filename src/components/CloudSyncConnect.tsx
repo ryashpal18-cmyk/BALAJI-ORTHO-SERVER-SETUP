@@ -2,6 +2,8 @@ import { useEffect, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { resetCloudConnection, ensureCloudSession } from '@/lib/localSession';
 import { runSync, downloadAllDataToCache } from '@/lib/offlineSync';
+import { syncClinicProfile } from '@/lib/clinicProfileSync';
+import { getClinicProfile } from '@/lib/clinicProfile';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -24,6 +26,12 @@ export function CloudSyncConnect() {
   };
   useEffect(() => { void refresh().catch(() => setMessage('Cloud connection जाँच नहीं हुई।')); }, []);
   if (!localOwner) return null;
+  // Creates the server Clinic Info row on first connect (or updates it) from this PC's Clinic Info.
+  const pushClinicInfo = async () => {
+    if (!getClinicProfile().name) return 'Clinic Info अभी खाली है — Settings → Clinic Info भरकर Save Changes दबाएँ।';
+    try { await syncClinicProfile(true); return 'Clinic Info server पर सेव है।'; }
+    catch (error: any) { return `Clinic Info sync बाकी: ${error?.message || 'दोबारा Sync Now दबाएँ।'}`; }
+  };
   const connect = async (event: React.FormEvent) => {
     event.preventDefault();
     if (busy) return;
@@ -36,7 +44,8 @@ export function CloudSyncConnect() {
       if (!(await ensureCloudSession())) throw new Error('Cloud verification पूरा नहीं हुआ।');
       const result = await runSync({retrySchema:true});
       void downloadAllDataToCache().catch(() => {});
-      setMessage(`${result.synced} records sync हुए; ${result.pending} pending हैं। बाकी background में retry होंगे।`);
+      const clinic = await pushClinicInfo();
+      setMessage(`✅ Cloud जुड़ गया। ${result.synced} records sync हुए; ${result.pending} pending हैं। ${clinic}`);
     } catch (error: any) {
       await supabase.auth.signOut({ scope: 'local' }).catch(() => {});
       resetCloudConnection();
@@ -51,7 +60,8 @@ export function CloudSyncConnect() {
       const connected = await ensureCloudSession();
       if (!connected) { await refresh(); return; }
       const r = await runSync({retrySchema:true});
-      setMessage(`${r.synced} records sync हुए; ${r.pending} pending हैं।`);
+      const clinic = await pushClinicInfo();
+      setMessage(`${r.synced} records sync हुए; ${r.pending} pending हैं। ${clinic}`);
     } catch { setMessage('Sync अभी पूरा नहीं हुआ। Pending data सुरक्षित रखा गया है।'); }
     finally { setBusy(false); }
   };
@@ -59,7 +69,13 @@ export function CloudSyncConnect() {
     <CardHeader><CardTitle>Cloud Sync Connect</CardTitle></CardHeader>
     <CardContent>
       <p className="mb-3 text-sm" role="status">{message}</p>
-      <p className="mb-4 text-sm text-muted-foreground">Working clinic database से connect करें। Cloud password save नहीं होगा; connection इस PC पर सुरक्षित रखा जाएगा।</p>
+      <ol className="mb-3 list-decimal pl-5 text-sm text-muted-foreground">
+        <li>पहले ऊपर <b>Server / Supabase Connection</b> में server जोड़ें (सिर्फ पहली बार)।</li>
+        <li>Clinic Info tab में clinic का नाम भरकर <b>Save Changes</b> दबाएँ।</li>
+        <li>नीचे वही <b>Cloud Admin email/password</b> डालें जो Server Setup में डाला था, फिर <b>Connect Cloud</b> दबाएँ।</li>
+        <li>पहली बार server पर Clinic Info की row अपने आप बन जाएगी।</li>
+      </ol>
+      <p className="mb-4 text-sm text-muted-foreground">Cloud password save नहीं होगा; connection इस PC पर सुरक्षित रखा जाएगा।</p>
       <form onSubmit={connect} className="space-y-3">
         <Label htmlFor="cloud-sync-email">Cloud account email</Label>
         <Input id="cloud-sync-email" type="email" autoComplete="username" value={email} onChange={e => setEmail(e.target.value)} required disabled={busy} />

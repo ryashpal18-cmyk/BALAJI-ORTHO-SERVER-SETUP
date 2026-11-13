@@ -11,7 +11,7 @@ async function scenario(mode,configured=true,failure='',role='admin'){
  setLoading(){},setPassword(){},setConfirmPassword(){},toast(){calls.push('error')},navigate:p=>calls.push(p),
  STORAGE_KEYS:{IS_LOGGED_IN:'logged',USER_NAME:'name',USER_ROLE:'role',USER_PERMS:'pages'},
  localStorage:{setItem:(k,v)=>saved.set(k,v),removeItem:k=>saved.delete(k)},
- displaySession:p=>{saved.set('role',p.role)},
+ displaySession:p=>{saved.set('role',p.role)},forgetWebProfile(){},rememberWebProfile(){},
  window:{electron:{offlineLogin:local,offlineSetup:local,logout:async()=>calls.push('logout'),establishSession:async()=>({success:failure!=='desktop'})}},
  supabase:{auth:{signOut:async()=>calls.push('cloud-signout'),signInWithPassword:async()=>{calls.push('cloud-login');return {data:{session:failure==='password'?null:{access_token:'test-token'}}}}},
  functions:{invoke:async()=>({data:profile})}},
