@@ -3,7 +3,7 @@ import { useEffect, useState } from "react";
 import { Navigate, useLocation } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { STORAGE_KEYS } from "@/lib/appConfig";
-import { displaySession } from "@/lib/localSession";
+import { displaySession, webSessionProfile } from "@/lib/localSession";
 import { startAutoSync } from "@/lib/offlineSync";
 import { startAutoBackupScheduler } from "@/lib/backup";
 function pageFor(path: string) {
@@ -29,10 +29,10 @@ export function ProtectedRoute({ children }: { children: React.ReactNode }) {
           }
           profile = res.valid ? res.principal : null;
         }
-        else { const { data, error } = await supabase.functions.invoke("session-access"); if (error) throw error; profile = data; }
+        else profile = await webSessionProfile();
         if (live) {
           if (profile) {
-            if (!bridge) await syncClinicProfile(false).catch(() => {});
+            if (!bridge) void syncClinicProfile(false).catch(() => {});
             if (!live) return;
             displaySession(profile);
             startAutoSync();
@@ -46,7 +46,8 @@ export function ProtectedRoute({ children }: { children: React.ReactNode }) {
         }
       } catch { if (live) setResult({ loading: false, profile: null }); }
     };
-    setResult({ loading: true, profile: null }); void check();
+    // Keep the current screen while re-checking on navigation (no "Checking access…" flash on every menu tap).
+    setResult(r => r.profile ? r : { loading: true, profile: null }); void check();
     const interval = setInterval(check, 60000);
     return () => { live = false; clearInterval(interval); };
   }, [pathname]);

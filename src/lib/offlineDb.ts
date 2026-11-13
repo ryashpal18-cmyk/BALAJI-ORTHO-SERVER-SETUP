@@ -531,9 +531,64 @@ export async function migrateLegacyIndexedDbIfNeeded(): Promise<void> {
 function assertSuccess(res: any) {
   if (!res || res.success !== true) throw new Error(res?.error || "Local database operation failed; data was not confirmed saved");
 }
+// ─── Mobile / browser: direct cloud save ─────────────────────────────────
+// Android app (Capacitor) mein desktop SQLite bridge nahi hota. Wahan har save
+// turant Supabase par likha jaata hai — wahi row shape aur wahi sync logic
+// (offlineSync.applyMutation) jo desktop background sync use karta hai.
+// offlineSync ko lazy import karte hain (offlineSync khud is file ko import karta hai).
+async function directWriter(m: QueuedMutation) {
+  const { applyMutationDirect } = await import("./offlineSync");
+  await applyMutationDirect(m);
+}
+
+function cloudSaveError(err: any) {
+  const msg = String(err?.message || err || "");
+  if (/failed to fetch|network|load failed|timeout/i.test(msg)) return new Error("इंटरनेट/Server से connection नहीं हुआ। Record सेव नहीं हुआ — इंटरनेट जाँचकर दोबारा Save करें।");
+  if (/jwt|401|not authenticated|row-level security|permission denied/i.test(msg)) return new Error("Cloud login की अनुमति नहीं मिली। Logout करके दोबारा login करें। (" + msg + ")");
+  return new Error(msg || "Cloud पर सेव नहीं हुआ");
+}
+
+async function commitDirect(mutation: any, row: any, idField = "id") {
+  if (typeof navigator !== "undefined" && !navigator.onLine)
+    throw new Error("मोबाइल पर सेव करने के लिए इंटरनेट चाहिए। इंटरनेट चालू करके दोबारा Save करें।");
+  const table = mutation.table;
+  const key = ["insert", "stock_adjust", "xray_upload"].includes(mutation.op) ? (mutation.tempId || row?.[idField]) : mutation.rowId;
+  const cacheKey = `${table}::${key}`;
+  const previous = key ? memCache.get(cacheKey) : undefined;
+  let saved = row;
+  if (mutation.op === "update") {
+    if (!previous) throw new Error("Record not available locally; refresh before editing");
+    if (table === "billing" && mutation.expectedPaid !== undefined && Number(previous.amount_paid || 0) !== mutation.expectedPaid)
+      throw new Error("Payment changed; reopen bill before collecting");
+    saved = { ...previous, ...row, [idField]: mutation.rowId, _pendingSync: true };
+  }
+  if (mutation.op !== "delete" && saved && key) memCache.set(cacheKey, saved);
+  try {
+    await directWriter({ ...mutation, createdAt: new Date().toISOString(), retries: 0 });
+  } catch (err) {
+    if (key) { if (previous) memCache.set(cacheKey, previous); else memCache.delete(cacheKey); }
+    cLog.error("cloud", `${table} ${mutation.op} direct save fail`, err);
+    throw cloudSaveError(err);
+  }
+  const realId = String(key ?? "").replace(/^local_/, "");
+  if (mutation.op === "delete") {
+    memCache.delete(cacheKey); memCache.delete(`${table}::${realId}`);
+    return null;
+  }
+  // Insert ke baad applyMutation server row ko asli id par rakh deta hai; RPC tables ke liye yahan saaf karo.
+  const temp = memCache.get(cacheKey);
+  if (mutation.op === "insert" && realId !== key && temp) {
+    memCache.delete(cacheKey);
+    if (!memCache.has(`${table}::${realId}`)) memCache.set(`${table}::${realId}`, { ...temp, [idField]: realId });
+  }
+  const result = memCache.get(`${table}::${realId}`) || memCache.get(cacheKey) || saved;
+  if (result?._pendingSync) { const clean = { ...result }; delete clean._pendingSync; memCache.set(`${table}::${clean[idField]}`, clean); return clean; }
+  return result;
+}
+
 export async function commitMutation(mutation: any, row: any, idField = "id") {
   const bridge = electronOffline();
-  if (!bridge) throw new Error("Durable offline save requires the desktop app");
+  if (!bridge) return commitDirect(mutation, row, idField);
   const res = await bridge.commitMutation(mutation, row, idField);
   assertSuccess(res); notifyQueueChanged(); return res.data;
 }
@@ -549,14 +604,35 @@ export async function restoreLocalSnapshot(dump: any) {
 }
 export async function atomicStockAdjustment(args: any) {
   const bridge = electronOffline();
-  if (!bridge) throw new Error("Stock adjustment requires the desktop app");
+  if (!bridge) {
+    // Mobile: same validation as desktop adjustStock, then the cloud RPC (adjust_stock_atomic).
+    const medicine = memCache.get(`medicines::${args.medicineId}`);
+    if (!medicine) throw new Error("Medicine not found; refresh inventory");
+    const qty = Number(args.changeQty);
+    const next = Number(medicine.stock_quantity || 0) + qty;
+    if (!Number.isFinite(qty) || qty === 0 || next < 0) throw new Error("Insufficient stock or invalid quantity");
+    const id = tempId();
+    const movement = { id, medicine_id: args.medicineId, medicine_name: medicine.name, change_qty: qty,
+      reason: args.reason || "manual", note: args.note || null, created_by: args.actorName || "Unknown", created_at: new Date().toISOString() };
+    await commitDirect({ table: "stock_movements", op: "stock_adjust", payload: movement, tempId: id }, movement);
+    return memCache.get(`medicines::${args.medicineId}`) || { ...medicine, stock_quantity: next };
+  }
   const res = await bridge.adjustStock({ ...args, id: tempId() });
   assertSuccess(res); notifyQueueChanged(); return res.data;
 }
 
 export async function commitBatch(items: { mutation: any; row: any; idField?: string }[]) {
   const bridge = electronOffline();
-  if (!bridge?.commitBatch) throw new Error('Atomic storage unavailable; update the desktop app before saving');
+  if (!bridge) {
+    // Mobile: items cloud par kram se likhe jaate hain. SMS outbox sirf desktop gateway se chalta hai.
+    const results: any[] = [];
+    for (const item of items) {
+      if (item.mutation?.op === "sms") { results.push(item.row); continue; }
+      results.push(await commitDirect(item.mutation, item.row, item.idField || "id"));
+    }
+    return results;
+  }
+  if (!bridge.commitBatch) throw new Error('Atomic storage unavailable; update the desktop app before saving');
   const res = await bridge.commitBatch(items);
   assertSuccess(res); notifyQueueChanged(); return res.data;
 }

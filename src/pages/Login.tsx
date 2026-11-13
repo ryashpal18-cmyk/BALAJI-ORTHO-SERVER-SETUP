@@ -15,7 +15,7 @@ import "./login.css";
 
 
 import { STORAGE_KEYS } from "@/lib/appConfig";
-import { displaySession, resetCloudConnection } from "@/lib/localSession";
+import { displaySession, resetCloudConnection, rememberWebProfile, webSessionProfile, forgetWebProfile } from "@/lib/localSession";
 
 
 
@@ -31,7 +31,8 @@ export default function Login() {
   const desktop = !!(window as any).electron?.offlineStatus;
   const [mode, setMode] = useState<"local" | "cloud">(desktop ? "local" : "cloud");
   const [configured, setConfigured] = useState(true);
-  const [ready, setReady] = useState(!desktop);
+  // Mobile with a saved clinic server: first check the remembered login before showing the form.
+  const [ready, setReady] = useState(!desktop && !serverConnection.url);
   const [confirmPassword, setConfirmPassword] = useState("");
   const [remember, setRemember] = useState(true);
   const [setupError, setSetupError] = useState("");
@@ -78,6 +79,20 @@ export default function Login() {
     return () => { active = false; };
   }, []);
 
+  // Mobile: login ek baar. Phone par saved cloud session ho to seedha app khulegi.
+  useEffect(() => {
+    if (desktop || !serverConnection.url) return;
+    let active = true;
+    void (async () => {
+      try {
+        const profile = await webSessionProfile();
+        if (active && profile) { await enter(profile); return; }
+      } catch { /* No network and no remembered access: show the login form. */ }
+      if (active) setReady(true);
+    })();
+    return () => { active = false; };
+  }, []);
+
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     if (loading || !ready) return;
@@ -87,6 +102,7 @@ export default function Login() {
     const clearLogin = () => {
       [STORAGE_KEYS.IS_LOGGED_IN, STORAGE_KEYS.USER_NAME, STORAGE_KEYS.USER_ROLE, STORAGE_KEYS.USER_PERMS]
         .forEach(key => localStorage.removeItem(key));
+      forgetWebProfile();
     };
     try {
       clearLogin();
@@ -114,6 +130,7 @@ export default function Login() {
       if (profileError || !profile || !["admin", "staff"].includes(profile.role) || !Array.isArray(profile.pages)) {
         throw profileError || new Error("Account access missing; administrator se sampark karein");
       }
+      if (!bridge) rememberWebProfile(profile);
       if (bridge) {
         const verified = await bridge.establishSession(data.session.access_token);
         if (!verified?.success) throw new Error("Desktop session verification failed");

@@ -233,6 +233,7 @@ async function applyMutation(m: QueuedMutation): Promise<void> {
     return;
   }
 
+
   if (m.op === "update") {
     if (!m.rowId) throw new Error("update mutation missing rowId");
     if (m.rowId.startsWith("local_")) throw new Error("PENDING_PARENT_INSERT");
@@ -332,6 +333,9 @@ async function applyMutation(m: QueuedMutation): Promise<void> {
     return;
   }
 }
+
+// Mobile/browser (no desktop SQLite bridge): offlineDb saves go straight to the cloud using the same logic.
+export function applyMutationDirect(m: QueuedMutation) { return applyMutation(m); }
 
 export async function runSync(options:{retrySchema?:boolean;retrySmsConfig?:boolean}={}): Promise<{ synced: number; pending: number }> {
   if ((window as any).electron?.checkAuth && !(await (window as any).electron.checkAuth()).valid) return { synced: 0, pending: 0 };

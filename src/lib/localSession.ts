@@ -8,6 +8,33 @@ export function displaySession(profile: any) {
   localStorage.setItem(STORAGE_KEYS.USER_PERMS, JSON.stringify(profile.pages || []));
 }
 
+// ─── Mobile / browser: remember the cloud login ──────────────────────────
+// Supabase already keeps the refresh token on the phone (persistSession). We also keep the
+// last verified access profile so a weak network does not throw the user back to the login form.
+const WEB_PROFILE_KEY = "bj-opd-web-profile";
+export function rememberWebProfile(profile: any) {
+  try { localStorage.setItem(WEB_PROFILE_KEY, JSON.stringify(profile)); } catch { /* storage full: login still works */ }
+}
+export function forgetWebProfile() { localStorage.removeItem(WEB_PROFILE_KEY); }
+const validProfile = (p: any) => p && ["admin", "staff"].includes(p.role) && Array.isArray(p.pages);
+
+/** Returns the verified profile for the saved phone login, or null when the user must sign in again. */
+export async function webSessionProfile(): Promise<any | null> {
+  const { data: { session } } = await supabase.auth.getSession();
+  if (!session) return null;
+  const { data, error } = await supabase.functions.invoke("session-access");
+  if (!error && validProfile(data)) { rememberWebProfile(data); return data; }
+  const status = (error as any)?.context?.status;
+  if (status === 401 || status === 403) { forgetWebProfile(); return null; }
+  // Network / server hiccup: keep the same user's last verified access.
+  try {
+    const cached = JSON.parse(localStorage.getItem(WEB_PROFILE_KEY) || "null");
+    if (validProfile(cached) && cached.userId === session.user.id) return cached;
+  } catch { /* corrupt cache → sign in again */ }
+  if (error) throw error;
+  return null;
+}
+
 let connecting: Promise<boolean> | null = null;
 let verifiedIdentity = "";
 let validUntil = 0;
