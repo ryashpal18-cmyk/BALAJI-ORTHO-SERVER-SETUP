@@ -1,5 +1,8 @@
 {
   "appId": "com.balaji.ortho.serversetup",
   "appName": "BJ OPD",
-  "webDir": "dist"
+  "webDir": "dist",
+  "android": {
+    "adjustMarginsForEdgeToEdge": "auto"
+  }
 }

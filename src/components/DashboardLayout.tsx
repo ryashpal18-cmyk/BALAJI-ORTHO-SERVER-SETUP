@@ -13,6 +13,7 @@ import { cacheGetAll } from "@/lib/offlineDb";
 import { useNavigate } from "react-router-dom";
 import { useFollowupsAround } from "@/hooks/useOrtho";
 import { SyncStatusBadge } from "@/components/SyncStatusBadge";
+import { MobileBottomNav } from "@/components/MobileBottomNav";
 import bg1 from "@/assets/dash-bg1.png";
 import bg2 from "@/assets/dash-bg2.png";
 import bg3 from "@/assets/dash-bg3.png";
@@ -166,11 +167,13 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
               borderBottom: "1px solid rgba(255,255,255,0.12)",
               boxShadow: "0 4px 24px rgba(13,35,81,0.28)",
               position: "sticky", top: 0, zIndex: 30,
+              // Never draw under the phone status bar (edge-to-edge Android / notch).
+              paddingTop: "calc(8px + env(safe-area-inset-top))",
             }}
           >
             {/* Left */}
             <div style={{ display: "flex", alignItems: "center", gap: "12px", flex: 1, minWidth: 0 }}>
-              <SidebarTrigger style={{ color: "rgba(255,255,255,0.90)" }} />
+              <SidebarTrigger className="h-10 w-10 md:h-7 md:w-7" aria-label="Menu" style={{ color: "rgba(255,255,255,0.90)" }} />
 
               {/* Search */}
               <div style={{ position: "relative", width: "280px", maxWidth: "100%", minWidth: 0 }} ref={wrapRef} className="hidden sm:block">
@@ -268,8 +271,8 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
                 <span className="hidden xl:inline">New Patient Admission</span>
               </button>
 
-              {/* Slide dots */}
-              <div style={{ display: "flex", gap: "5px", alignItems: "center" }}>
+              {/* Slide dots (desktop only; on a phone they only crowd the header) */}
+              <div className="hidden md:flex" style={{ gap: "5px", alignItems: "center" }}>
                 {BG_IMAGES.map((_, i) => (
                   <button
                     key={i}
@@ -381,8 +384,9 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
           </header>
 
           {/* ── MAIN CONTENT ── */}
-          <main style={{
-            flex: 1, padding: "20px 24px",
+          {/* Phone: extra bottom space so the bottom navigation bar never covers page content. */}
+          <main className="px-3 pt-4 pb-[calc(84px+env(safe-area-inset-bottom))] md:px-6 md:py-5" style={{
+            flex: 1,
             overflowY: "auto",
             background: "transparent",
             position: "relative",
@@ -436,6 +440,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
           </main>
         </div>
       </div>
+      <MobileBottomNav />
     </SidebarProvider>
   );
 }
