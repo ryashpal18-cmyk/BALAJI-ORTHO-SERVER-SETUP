@@ -183,9 +183,9 @@ export default function Login() {
       <div className="bj-login-layout">
         <img
           className="bj-login-poster"
-          src="./bj-opd-icon.png"
-          width={512}
-          height={512}
+          src="./bj-opd-background.webp"
+          width={1672}
+          height={941}
           alt="BJ OPD Clinic Management Software — OPD, Digital X-Ray, Ortho Care, Billing, SMS and WhatsApp"
         />
         <div className="bj-login-card">
